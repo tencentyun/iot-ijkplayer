@@ -12,7 +12,7 @@ android {
     }
     defaultConfig {
         applicationId "tv.danmaku.ijk.media.example"
-        minSdkVersion 9
+        minSdkVersion 14
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode rootProject.ext.versionCode
         versionName rootProject.ext.versionName
@@ -23,9 +23,23 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
+
+    flavorDimensions 'default'
     productFlavors {
-        all32 { minSdkVersion 9 }
-        all64 { minSdkVersion 21 }
+        all32 {
+            flavorDimensions 'default'
+            minSdkVersion 14
+            ndk {
+                abiFilter 'armeabi-v7a'
+            }
+        }
+        all64 {
+            flavorDimensions 'default'
+            minSdkVersion 21
+            ndk {
+                abiFilter 'arm64-v7a'
+            }
+        }
         // armv5 {}
         // armv7a {}
         // arm64 { minSdkVersion 21 }
@@ -35,9 +49,9 @@ android {
 
 dependencies {
     compile fileTree(include: ['*.jar'], dir: 'libs')
-    compile 'com.android.support:appcompat-v7:23.0.1'
-    compile 'com.android.support:preference-v7:23.0.1'
-    compile 'com.android.support:support-annotations:23.0.1'
+    compile 'com.android.support:appcompat-v7:28.0.0'
+    compile 'com.android.support:preference-v7:28.0.0'
+    compile 'com.android.support:support-annotations:28.0.0'
 
     compile 'com.squareup:otto:1.3.8'
 
