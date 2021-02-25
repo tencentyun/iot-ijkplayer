@@ -1119,6 +1119,8 @@ static void sync_clock_to_slave(Clock *c, Clock *slave)
 }
 
 static int get_master_sync_type(VideoState *is) {
+    if (is->realtime)
+        return AV_SYNC_EXTERNAL_CLOCK;
     if (is->av_sync_type == AV_SYNC_VIDEO_MASTER) {
         if (is->video_st)
             return AV_SYNC_VIDEO_MASTER;
@@ -1159,7 +1161,7 @@ static void check_external_clock_speed(VideoState *is) {
        set_clock_speed(&is->extclk, FFMAX(EXTERNAL_CLOCK_SPEED_MIN, is->extclk.speed - EXTERNAL_CLOCK_SPEED_STEP));
    } else if ((is->video_stream < 0 || is->videoq.nb_packets > EXTERNAL_CLOCK_MAX_FRAMES) &&
               (is->audio_stream < 0 || is->audioq.nb_packets > EXTERNAL_CLOCK_MAX_FRAMES)) {
-       set_clock_speed(&is->extclk, FFMIN(EXTERNAL_CLOCK_SPEED_MAX, is->extclk.speed + EXTERNAL_CLOCK_SPEED_STEP));
+       set_clock_speed(&is->extclk, FFMIN(EXTERNAL_CLOCK_SPEED_MAX, is->extclk.speed + EXTERNAL_CLOCK_SPEED_STEP_UP));
    } else {
        double speed = is->extclk.speed;
        if (speed != 1.0)
@@ -3042,13 +3044,20 @@ static int stream_has_enough_packets(AVStream *st, int stream_id, PacketQueue *q
            queue->nb_packets > min_frames;
 }
 
-static int is_realtime(AVFormatContext *s)
+static int is_realtime(AVFormatContext *s, int packet_buffering)
 {
     if(   !strcmp(s->iformat->name, "rtp")
        || !strcmp(s->iformat->name, "rtsp")
        || !strcmp(s->iformat->name, "sdp")
     )
         return 1;
+
+    if (!packet_buffering && s->url) {
+        if (!strncmp(s->url, "http:", 5)
+                || !strncmp(s->url, "https:", 6)
+                || !strncmp(s->url, "rtmp:", 5))
+            return 1;
+    }
 
     if(s->pb && (   !strncmp(s->filename, "rtp:", 4)
                  || !strncmp(s->filename, "udp:", 4)
@@ -3216,7 +3225,7 @@ static int read_thread(void *arg)
         }
     }
 
-    is->realtime = is_realtime(ic);
+    is->realtime = is_realtime(ic, ffp->packet_buffering);
 
     av_dump_format(ic, 0, is->filename, 0);
 
