@@ -129,7 +129,7 @@ public class SampleMediaListFragment extends Fragment {
                 "    ]\n" +
                 "}";
 
-        mAdapter.addItem("rtmp://5000.liveplay.myqcloud.com/live/test_1614137581?txSecret=e5d418d1676f366f0d7885c2c82c7e90&txTime=6217AB7F", "rtmp low latency test");
+        mAdapter.addItem("http://5000.liveplay.myqcloud.com/live/test_1614137581.flv", "rtmp low latency test");
         mAdapter.addItem(manifest_string, "las test");
         mAdapter.addItem("http://devimages.apple.com.edgekey.net/streaming/examples/bipbop_4x3/bipbop_4x3_variant.m3u8", "bipbop basic master playlist");
         mAdapter.addItem("http://devimages.apple.com.edgekey.net/streaming/examples/bipbop_4x3/gear1/prog_index.m3u8", "bipbop basic 400x300 @ 232 kbps");
