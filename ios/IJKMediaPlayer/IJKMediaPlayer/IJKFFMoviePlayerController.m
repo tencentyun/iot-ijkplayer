@@ -1635,6 +1635,15 @@ static int ijkff_inject_callback(void *opaque, int message, void *data, size_t d
      [[NSNotificationCenter defaultCenter] postNotificationName:IJKMPMoviePlayerIsAirPlayVideoActiveDidChangeNotification object:nil userInfo:nil];
 }
 
+- (void)stopRecord {
+    ijkmp_stop_record(_mediaPlayer);
+}
+
+- (void)startRecordWithFileName:(NSString *)fileName {
+    // 视频存储的路径
+    const char *path = [fileName cStringUsingEncoding:NSUTF8StringEncoding];
+    ijkmp_start_record(_mediaPlayer, path);
+}
 
 #pragma mark Option Conventionce
 
