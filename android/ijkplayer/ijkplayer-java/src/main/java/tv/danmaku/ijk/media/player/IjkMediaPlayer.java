@@ -23,6 +23,7 @@ import android.annotation.TargetApi;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.res.AssetFileDescriptor;
+import android.graphics.Bitmap;
 import android.graphics.SurfaceTexture;
 import android.graphics.Rect;
 import android.media.MediaCodecInfo;
@@ -1284,4 +1285,12 @@ public final class IjkMediaPlayer extends AbstractMediaPlayer {
     public static native void native_profileBegin(String libName);
     public static native void native_profileEnd();
     public static native void native_setLogLevel(int level);
+
+
+    @Override
+    public native int startRecord(String var1);
+    @Override
+    public native int stopRecord();
+    @Override
+    public native boolean getCurrentFrame(Bitmap var1);
 }
