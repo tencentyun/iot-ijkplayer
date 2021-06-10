@@ -199,6 +199,35 @@ cd ios
 ./compile-ffmpeg.sh clean
 ./compile-ffmpeg.sh all
 
+
+
+###### 支持https ######
+1、 curl http://www.tortall.NET/projects/yasm/releases/yasm-1.2.0.tar.gz >yasm.tar.gz
+2、 tar xzvf yasm.tar.gz
+3、 cd yasm-1.2.0
+4、 ./configure
+5、 make
+6、 sudo make install
+# 7、  export PATH="$PATH:/Users/eagleychen/Desktop/test/yasm-1.2.0"
+
+ln -s module-lite.sh module.sh
+vim ../config/module.sh
+export COMMON_FF_CFG_FLAGS="$COMMON_FF_CFG_FLAGS --enable-openssl"
+
+cd ijkplayer-ios
+
+./init-ios.sh
+./init-ios-openssl.sh
+
+cd ios
+
+./compile-ffmpeg.sh clean
+./compile-openssl.sh all
+./compile-ffmpeg.sh all
+
+###### 支持https ######
+
+
 # Demo
 #     open ios/IJKMediaDemo/IJKMediaDemo.xcodeproj with Xcode
 # 
