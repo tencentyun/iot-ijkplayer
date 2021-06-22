@@ -221,10 +221,13 @@ cd ijkplayer-ios
 
 cd ios
 
+./compile-openssl.sh clean
 ./compile-ffmpeg.sh clean
-./compile-openssl.sh all
-./compile-ffmpeg.sh all
 
+./compile-openssl.sh arm64
+./compile-ffmpeg.sh arm64
+
+编译 IJKMediaPlayer 工程，将 IJKMediaFramework.framework、 libcrypto.a、 libssl.a 发布集成进项目
 ###### 支持https ######
 
 
