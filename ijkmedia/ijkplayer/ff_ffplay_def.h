@@ -729,6 +729,7 @@ typedef struct FFPlayer {
     AVOutputFormat *m_ofmt;
     pthread_mutex_t record_mutex;       // 锁
     int is_record;                      // 是否在录制
+    bool real_record;                   //判断关键帧再真正保存
     int record_error;
     int is_first;                       // 第一帧数据
     int64_t start_pts;                  // 开始录制时pts
