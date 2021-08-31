@@ -5166,6 +5166,13 @@ int ffp_start_record(FFPlayer *ffp, const char *file_name)
                      }
                  }
                 out_stream->codecpar->codec_tag = 0;
+                
+                //修复h265 保存mp4
+                if (in_codecpar->codec_type == AVMEDIA_TYPE_VIDEO && in_codecpar->codec_id == AV_CODEC_ID_H265) {
+                    out_stream->codecpar->codec_tag = MKTAG('h', 'v', 'c', '1');
+                }
+                    
+                    
             }
             MPTRACE("===== end set sample_rate 4410 =====\n");
             av_dump_format(ffp->m_ofmt_ctx, 0, file_name, 1);
