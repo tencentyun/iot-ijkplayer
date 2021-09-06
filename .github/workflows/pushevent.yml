@@ -20,7 +20,7 @@ jobs:
       run: |
         VERSION=$(echo "${{ github.ref }}" | sed -e 's,.*/\(.*\),\1,')
         export GIT_BRANCH_IMAGE_VERSION=$VERSION
-        sh .github/script/build_enet_ios.sh Debug
+        sh .github/script/build_ijk_ios.sh Debug
       env:
         GIT_ACCESS_TOKEN: ${{ secrets.IOT_GITHUB_ACCESS_TOKEN }}
         PROVISIONING_PASSWORD: ${{ secrets.GPG_DECRYPT_PASSPHRASE }}
@@ -30,7 +30,7 @@ jobs:
       run: |
         VERSION=$(echo "${{ github.ref }}" | sed -e 's,.*/\(.*\),\1,')
         export GIT_BRANCH_IMAGE_VERSION=$VERSION
-        sh .github/script/build_enet_ios.sh Release
+        sh .github/script/build_ijk_ios.sh Release
       env:
         GIT_ACCESS_TOKEN: ${{ secrets.IOT_GITHUB_ACCESS_TOKEN }}
         PROVISIONING_PASSWORD: ${{ secrets.GPG_DECRYPT_PASSPHRASE }}
