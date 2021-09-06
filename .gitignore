@@ -5,6 +5,7 @@ android/ffmpeg-*
 android/openssl-*
 ios/ffmpeg-*
 ios/openssl-*
+ios/IJKMediaPlayer/iot-thirdparty-ios
 extra
 .DS_Store
 ijkmedia/ijkyuv/

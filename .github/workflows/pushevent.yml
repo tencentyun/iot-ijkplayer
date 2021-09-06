@@ -1,0 +1,42 @@
+name: iOS XP2P CI
+
+on:
+  push:
+    paths-ignore: # 有時候不想要改個文档也触发 github actions
+      - '**.md'
+      - 'LICENSE'
+
+jobs:
+  build-and-deploy:
+    runs-on: macos-10.15
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+    
+    - name: build libenet
+      if: startsWith(github.event.ref, 'refs/heads')
+      run: |
+        VERSION=$(echo "${{ github.ref }}" | sed -e 's,.*/\(.*\),\1,')
+        export GIT_BRANCH_IMAGE_VERSION=$VERSION
+        sh .github/script/build_enet_ios.sh Debug
+      env:
+        GIT_ACCESS_TOKEN: ${{ secrets.IOT_GITHUB_ACCESS_TOKEN }}
+        PROVISIONING_PASSWORD: ${{ secrets.GPG_DECRYPT_PASSPHRASE }}
+
+    - name: push libenet
+      if: startsWith(github.event.ref, 'refs/tags')
+      run: |
+        VERSION=$(echo "${{ github.ref }}" | sed -e 's,.*/\(.*\),\1,')
+        export GIT_BRANCH_IMAGE_VERSION=$VERSION
+        sh .github/script/build_enet_ios.sh Release
+      env:
+        GIT_ACCESS_TOKEN: ${{ secrets.IOT_GITHUB_ACCESS_TOKEN }}
+        PROVISIONING_PASSWORD: ${{ secrets.GPG_DECRYPT_PASSPHRASE }}
+        
+    - name: Upload NETSDK Library
+      uses: actions/upload-artifact@v2
+      with:
+        name: libenet_ios.a
+        path: iot-p2p/build/ios/Release-iphoneos/libenet.a
