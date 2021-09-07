@@ -3659,17 +3659,17 @@ static int read_thread(void *arg)
 //
 //                }
 //            }
-            if (!ffp->real_record && (pkt->flags & AV_PKT_FLAG_KEY)) { //遇到关键帧打开开关
+            if (!ffp->real_record && (pkt->flags & AV_PKT_FLAG_KEY)) { //遇到关键帧打开开关,quicktime比较严格
                 MPTRACE("===== now III sample_rate =====\n");
                 ffp->real_record = true;
             }
             
-//            if (ffp->real_record) {
+            if (ffp->real_record) {
                 if (0 != ffp_record_file(ffp, pkt)) {
                     ffp->record_error = 1;
                     ffp_stop_record(ffp);
                 }
-//            }
+            }
         }
     }
 
@@ -5200,59 +5200,7 @@ int ffp_start_record(FFPlayer *ffp, const char *file_name)
             ffp->record_error = 1;
             return -1;
         }
-/*
-int ffp_record_file(FFPlayer *ffp, AVPacket *packet)
-        {
-            assert(ffp);
-            VideoState *is = ffp->is;
-            int ret = 0;
-            AVStream *in_stream;
-            AVStream *out_stream;
-            if (ffp->is_record) {
-                if (packet == NULL) {
-                    ffp->record_error = 1;
-                    av_log(ffp, AV_LOG_ERROR, "packet == NULL");
-                    return -1;
-                }
 
-                AVPacket *pkt = (AVPacket *)av_malloc(sizeof(AVPacket)); // 与看直播的 AVPacket分开，不然卡屏
-                av_log(ffp, AV_LOG_INFO, "----------- pts:%llx,dts:%llx,duration:%llx",pkt->pts,pkt->dts,pkt->duration);
-                av_new_packet(pkt, 0);
-                if (0 == av_packet_ref(pkt, packet)) {
-                    pthread_mutex_lock(&ffp->record_mutex);
-                    if (!ffp->is_first) { // 录制的第一帧，时间从0开始
-                        ffp->is_first = 1;
-                        pkt->pts = 0;
-                        pkt->dts = 0;
-                    } else { // 之后的每一帧都要减去，点击开始录制时的值，这样的时间才是正确的
-                        pkt->pts = abs(pkt->pts - ffp->start_pts);
-                        pkt->dts = abs(pkt->dts - ffp->start_dts);
-                    }
-
-                    in_stream  = is->ic->streams[pkt->stream_index];
-                    out_stream = ffp->m_ofmt_ctx->streams[pkt->stream_index];
-
-                     // 转换PTS/DTS
-                    pkt->pts = av_rescale_q_rnd(pkt->pts, in_stream->time_base, out_stream->time_base, (AV_ROUND_NEAR_INF|AV_ROUND_PASS_MINMAX));
-                    pkt->dts= av_rescale_q_rnd(pkt->dts, in_stream->time_base, out_stream->time_base, (AV_ROUND_NEAR_INF|AV_ROUND_PASS_MINMAX));
-                    pkt->duration = av_rescale_q(pkt->duration, in_stream->time_base, out_stream->time_base);
-                    pkt->pos = -1;
-                    // 写入一个AVPacket到输出文件,如果遇到报错的帧，那么直接跳过ret赋值0，跳过该帧
-                    if ((ret = av_interleaved_write_frame(ffp->m_ofmt_ctx, pkt))< 0) {
-                        av_log(ffp, AV_LOG_ERROR, "Error muxing packet %d",ret);
-                        ret = 0;
-                    }
-                    av_packet_unref(pkt);
-                    pthread_mutex_unlock(&ffp->record_mutex);
-                    //av_log(ffp, AV_LOG_ERROR, "av_interleaved_write_frame end");
-                } else {
-                    av_log(ffp, AV_LOG_ERROR, "av_packet_ref == NULL");
-                }
-            }
-            return ret;
-        }
-//*/
-///*
 int ffp_record_file(FFPlayer *ffp, AVPacket *packet)
     {
     assert(ffp);
@@ -5266,11 +5214,7 @@ int ffp_record_file(FFPlayer *ffp, AVPacket *packet)
             av_log(ffp, AV_LOG_ERROR, "packet == NULL");
             return -1;
         }
-        
-        //                AVPacket *pkt = (AVPacket *)av_malloc(sizeof(AVPacket)); // 与看直播的 AVPacket分开，不然卡屏
-        //                av_log(ffp, AV_LOG_DEBUG, "----------- pts:%llx,dts:%llx,duration:%llx",pkt->pts,pkt->dts,pkt->duration);
-        //                av_new_packet(pkt, 0);
-        
+                
         int size = packet->size;
         
         AVPacket pkt;
@@ -5316,7 +5260,7 @@ int ffp_record_file(FFPlayer *ffp, AVPacket *packet)
     }
     return ret;
 }
-//*/
+
 int ffp_stop_record(FFPlayer *ffp)
         {
             MPTRACE("====== stop record ======");
