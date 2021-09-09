@@ -363,6 +363,10 @@ void IJKFFIOStatCompleteRegister(void (*cb)(const char *url,
     return self;
 }
 
+- (void)resetHubFrame:(CGRect)frame {
+    [_hudViewController setRect:frame];
+}
+
 - (void)dealloc
 {
 //    [self unregisterApplicationObservers];
