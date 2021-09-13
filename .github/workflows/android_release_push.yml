@@ -1,18 +1,15 @@
 name: IOT IJK ANDROID DEBUG CI
 
 on:
-  push:
-    tags-ignore:
-      - '*'
-    branches:
-      - '*'
-  pull_request:
-    branches: [ master ]
+  release:
+    types: [published]
 
 env:
   IOT_SONATYPE_USERNAME: ${{ secrets.IOT_SONATYPE_USERNAME }}
   IOT_SONATYPE_PASSWORD: ${{ secrets.IOT_SONATYPE_PASSWORD }}
   GPG_DECRYPT_PASSPHRASE: ${{ secrets.GPG_DECRYPT_PASSPHRASE }}
+  IOT_GPG_KEYNAME: ${{ secrets.IOT_GPG_KEYNAME }}
+  IOT_GPG_PASSPHRASE: ${{ secrets.IOT_GPG_PASSPHRASE }}
 
 jobs:
   build:
@@ -21,10 +18,24 @@ jobs:
       - uses: actions/checkout@v2
         with:
           fetch-depth: 0
+      - run: |
+          gpg -d --passphrase "$GPG_DECRYPT_PASSPHRASE" --batch --quiet .github/android/secring.gpg.asc > android/ijkplayer/secring.gpg
       - name: Download r10e NDK
         run: |
           wget https://dl.google.com/android/repository/android-ndk-r10e-linux-x86_64.zip
           unzip android-ndk-r10e-linux-x86_64.zip
+      - name: Update SDK Version
+        run: |
+          rtt=$(git describe --tags `git rev-list --tags --max-count=1`)
+          rt=${rtt#*v}
+          rc=$(git rev-parse --short HEAD)
+          cd android/ijkplayer
+          sed -i 's#def version.*#def version = \"'$rt'\"#g' config.gradle
+      - name: Update Values of Signing
+        run: |
+          export KEY_ID_OF_SIGN=$IOT_GPG_KEYNAME
+          export PASSWORD_OF_SIGN=$IOT_GPG_PASSPHRASE
+          sh .github/scripts/updateValuesForSign.sh
       - name: Build with Gradle
         run: |
           export ANDROID_NDK=./android-ndk-r10e
@@ -32,7 +43,8 @@ jobs:
           cd android/ijkplayer
           ./gradlew :ijkplayer-armv7a:build
           ./gradlew :ijkplayer-java:build
-      - name: Publish aar and jar to Maven
+      - name: Publish aar Maven
         run: |
+          cd android/ijkplayer
           ./gradlew :ijkplayer-armv7a:publish
           ./gradlew :ijkplayer-java:publish
