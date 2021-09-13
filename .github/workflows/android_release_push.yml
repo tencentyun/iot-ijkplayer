@@ -35,7 +35,7 @@ jobs:
         run: |
           export KEY_ID_OF_SIGN=$IOT_GPG_KEYNAME
           export PASSWORD_OF_SIGN=$IOT_GPG_PASSPHRASE
-          sh .github/scripts/updateValuesForSign.sh
+          sh .github/script/updateValuesForSign.sh
       - name: Build with Gradle
         run: |
           export ANDROID_NDK=./android-ndk-r10e
