@@ -16,15 +16,15 @@ env:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: macos-10.15
     steps:
       - uses: actions/checkout@v2
         with:
           fetch-depth: 0
       - name: Download r10e NDK
         run: |
-          wget https://dl.google.com/android/repository/android-ndk-r10e-linux-x86_64.zip
-          unzip android-ndk-r10e-linux-x86_64.zip
+          wget https://dl.google.com/android/repository/android-ndk-r10e-darwin-x86_64.zip
+          unzip android-ndk-r10e-darwin-x86_64.zip
       - name: Update SDK Version
         run: bash .github/script/updateVersionForSnapshot.sh
       - name: Build with Gradle
