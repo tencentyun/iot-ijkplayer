@@ -19,6 +19,6 @@ new_version=$firsttag.$secondtag.$thirdtag
 
 echo ">>>new version: $new_version"
 
-sed -i 's#def version.*#def version = \"'$new_version'-SNAPSHOT\"#g' ./android/ijkplayer/config.gradle
+sed -i "" 's#def version.*#def version = \"'$new_version'-SNAPSHOT\"#g' ./android/ijkplayer/config.gradle
 
 echo ">>>over!!!"

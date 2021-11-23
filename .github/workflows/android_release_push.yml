@@ -13,7 +13,7 @@ env:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: macos-10.15
     steps:
       - uses: actions/checkout@v2
         with:
@@ -22,15 +22,15 @@ jobs:
           gpg -d --passphrase "$GPG_DECRYPT_PASSPHRASE" --batch --quiet .github/android/secring.gpg.asc > android/ijkplayer/secring.gpg
       - name: Download r10e NDK
         run: |
-          wget https://dl.google.com/android/repository/android-ndk-r10e-linux-x86_64.zip
-          unzip android-ndk-r10e-linux-x86_64.zip
+          wget https://dl.google.com/android/repository/android-ndk-r10e-darwin-x86_64.zip
+          unzip android-ndk-r10e-darwin-x86_64.zip
       - name: Update SDK Version
         run: |
           rtt=$(git describe --tags `git rev-list --tags --max-count=1`)
           rt=${rtt#*v}
           rc=$(git rev-parse --short HEAD)
           cd android/ijkplayer
-          sed -i 's#def version.*#def version = \"'$rt'\"#g' config.gradle
+          sed -i "" 's#def version.*#def version = \"'$rt'\"#g' config.gradle
       - name: Update Values of Signing
         run: |
           export KEY_ID_OF_SIGN=$IOT_GPG_KEYNAME
@@ -38,7 +38,7 @@ jobs:
           sh .github/script/updateValuesForSign.sh
       - name: Build with Gradle
         run: |
-          export ANDROID_NDK=./android-ndk-r10e
+          export ANDROID_NDK=/Users/runner/work/iot-ijkplayer/iot-ijkplayer/android-ndk-r10e
           sh .github/script/build_armv7a.sh
           cd android/ijkplayer
           ./gradlew :ijkplayer-armv7a:build
