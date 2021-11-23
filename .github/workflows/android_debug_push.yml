@@ -33,9 +33,11 @@ jobs:
           sh .github/script/build_armv7a.sh
           cd android/ijkplayer
           ./gradlew :ijkplayer-armv7a:assemble
+          ./gradlew :ijkplayer-arm64:assemble
           ./gradlew :ijkplayer-java:assemble
       - name: Publish aar to Maven
         run: |
           cd android/ijkplayer
           ./gradlew :ijkplayer-armv7a:publish
+          ./gradlew :ijkplayer-arm64:publish
           ./gradlew :ijkplayer-java:publish
