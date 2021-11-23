@@ -32,8 +32,8 @@ jobs:
           export ANDROID_NDK=./android-ndk-r10e
           sh .github/script/build_armv7a.sh
           cd android/ijkplayer
-          ./gradlew :ijkplayer-armv7a:build
-          ./gradlew :ijkplayer-java:build
+          ./gradlew :ijkplayer-armv7a:assemble
+          ./gradlew :ijkplayer-java:assemble
       - name: Publish aar to Maven
         run: |
           cd android/ijkplayer
