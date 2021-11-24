@@ -1,4 +1,4 @@
-name: IOT IJK ANDROID DEBUG CI
+name: IOT IJK ANDROID RELEASE CI
 
 on:
   release:
