@@ -11,4 +11,4 @@ cd android/contrib
 ./compile-ffmpeg.sh arm64
 cd ..
 ./compile-ijk.sh armv7a
-./compile-ijk.sh armv64
+./compile-ijk.sh arm64
