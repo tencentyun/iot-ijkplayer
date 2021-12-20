@@ -93,7 +93,7 @@
 #define MAX_MIN_FRAMES      50000
 #define MIN_FRAMES (ffp->dcc.min_frames)
 #define EXTERNAL_CLOCK_MIN_FRAMES 0
-#define EXTERNAL_CLOCK_MAX_FRAMES 5
+#define EXTERNAL_CLOCK_MAX_FRAMES 3
 
 /* Minimum SDL audio buffer size, in samples. */
 #define SDL_AUDIO_MIN_BUFFER_SIZE 512
@@ -117,7 +117,7 @@
 
 /* external clock speed adjustment constants for realtime sources based on buffer fullness */
 #define EXTERNAL_CLOCK_SPEED_MIN  0.900
-#define EXTERNAL_CLOCK_SPEED_MAX  1.500
+#define EXTERNAL_CLOCK_SPEED_MAX  1.200
 #define EXTERNAL_CLOCK_SPEED_STEP 0.01
 #define EXTERNAL_CLOCK_SPEED_STEP_UP 0.1
 
