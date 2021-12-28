@@ -1119,8 +1119,8 @@ static void sync_clock_to_slave(Clock *c, Clock *slave)
 }
 
 static int get_master_sync_type(VideoState *is) {
-    if (is->realtime)
-        return AV_SYNC_EXTERNAL_CLOCK;
+//    if (is->realtime)
+//        return AV_SYNC_EXTERNAL_CLOCK;
     if (is->av_sync_type == AV_SYNC_VIDEO_MASTER) {
         if (is->video_st)
             return AV_SYNC_VIDEO_MASTER;
@@ -1155,7 +1155,7 @@ static double get_master_clock(VideoState *is)
     return val;
 }
 
-static void check_external_clock_speed(VideoState *is) {
+static void check_external_clock_speed(VideoState *is, FFPlayer *ffp) {
 #if 0
    if ((is->video_stream >= 0 && is->videoq.nb_packets <= EXTERNAL_CLOCK_MIN_FRAMES) ||
        (is->audio_stream >= 0 && is->audioq.nb_packets <= EXTERNAL_CLOCK_MIN_FRAMES)) {
@@ -1168,7 +1168,10 @@ static void check_external_clock_speed(VideoState *is) {
        if (speed != 1.0)
            set_clock_speed(&is->extclk, speed + EXTERNAL_CLOCK_SPEED_STEP * (1.0 - speed) / fabs(1.0 - speed));
    }
-#else
+#endif
+
+#if 0
+//#else
     if (is->video_stream > 0 && is->videoq.nb_packets > EXTERNAL_CLOCK_MAX_FRAMES) {
         set_clock_speed(&is->extclk, FFMIN(EXTERNAL_CLOCK_SPEED_MAX, is->extclk.speed + EXTERNAL_CLOCK_SPEED_STEP_UP));
     } else {
@@ -1177,6 +1180,21 @@ static void check_external_clock_speed(VideoState *is) {
            set_clock_speed(&is->extclk, speed + EXTERNAL_CLOCK_SPEED_STEP * (1.0 - speed) / fabs(1.0 - speed));
     }
 #endif
+    if (is->videoq.nb_packets > EXTERNAL_CLOCK_MAX_FRAMES) {
+        
+        int synctype = get_master_sync_type(is);
+        if (synctype == AV_SYNC_AUDIO_MASTER) {
+//            printf("speeddddddd===audio===packets===>%d\n",is->videoq.nb_packets);
+            ffp_set_playback_rate(ffp, EXTERNAL_CLOCK_SPEED_MAX);
+        }else {
+//            printf("speeddddddd===exter===packets===>%d\n",is->videoq.nb_packets);
+            set_clock_speed(&is->extclk, EXTERNAL_CLOCK_SPEED_MAX);
+        }
+    }else {
+        ffp_set_playback_rate(ffp, 1);
+        set_clock_speed(&is->extclk, 1);
+    }
+//#endif
 }
 
 /* seek in the stream */
@@ -1324,8 +1342,8 @@ static void video_refresh(FFPlayer *opaque, double *remaining_time)
 
     Frame *sp, *sp2;
 
-    if (!is->paused && get_master_sync_type(is) == AV_SYNC_EXTERNAL_CLOCK && is->realtime)
-        check_external_clock_speed(is);
+    if (!is->paused && (get_master_sync_type(is) == AV_SYNC_EXTERNAL_CLOCK || get_master_sync_type(is) == AV_SYNC_AUDIO_MASTER) && is->realtime)
+        check_external_clock_speed(is, ffp);
 
     if (!ffp->display_disable && is->show_mode != SHOW_MODE_VIDEO && is->audio_st) {
         time = av_gettime_relative() / 1000000.0;
@@ -2663,6 +2681,8 @@ static void sdl_audio_callback(void *opaque, Uint8 *stream, int len)
         SDL_AoutSetPlaybackRate(ffp->aout, ffp->pf_playback_rate);
 #endif
     }
+//    printf("mmmmmmmmm===>%f\n",ffp->pf_playback_rate);
+    
     if (ffp->pf_playback_volume_changed) {
         ffp->pf_playback_volume_changed = 0;
         SDL_AoutSetPlaybackVolume(ffp->aout, ffp->pf_playback_volume);
@@ -3300,7 +3320,7 @@ static int read_thread(void *arg)
     if (st_index[AVMEDIA_TYPE_AUDIO] >= 0) {
         stream_component_open(ffp, st_index[AVMEDIA_TYPE_AUDIO]);
     } else {
-        ffp->av_sync_type = AV_SYNC_VIDEO_MASTER;
+        ffp->av_sync_type = AV_SYNC_EXTERNAL_CLOCK;
         is->av_sync_type  = ffp->av_sync_type;
     }
 

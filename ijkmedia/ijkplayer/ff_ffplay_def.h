@@ -93,7 +93,7 @@
 #define MAX_MIN_FRAMES      50000
 #define MIN_FRAMES (ffp->dcc.min_frames)
 #define EXTERNAL_CLOCK_MIN_FRAMES 0
-#define EXTERNAL_CLOCK_MAX_FRAMES 3
+#define EXTERNAL_CLOCK_MAX_FRAMES 5
 
 /* Minimum SDL audio buffer size, in samples. */
 #define SDL_AUDIO_MIN_BUFFER_SIZE 512
