@@ -85,7 +85,6 @@ static void aout_close_audio(SDL_Aout *aout)
 
 static void aout_set_playback_rate(SDL_Aout *aout, float playbackRate)
 {
-    SDLTRACE("aout_close_audio()\n");
     SDL_Aout_Opaque *opaque = aout->opaque;
 
     [opaque->aoutController setPlaybackRate:playbackRate];
