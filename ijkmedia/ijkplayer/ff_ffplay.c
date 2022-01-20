@@ -1184,10 +1184,10 @@ static void check_external_clock_speed(VideoState *is, FFPlayer *ffp) {
         
         int synctype = get_master_sync_type(is);
         if (synctype == AV_SYNC_AUDIO_MASTER) {
-//            printf("speeddddddd===audio===packets===>%d\n",is->videoq.nb_packets);
+            printf("speeddddddd===audio===packets===>%d\n",is->videoq.nb_packets);
             ffp_set_playback_rate(ffp, EXTERNAL_CLOCK_SPEED_MAX);
         }else {
-//            printf("speeddddddd===exter===packets===>%d\n",is->videoq.nb_packets);
+            printf("speeddddddd===exter===packets===>%d\n",is->videoq.nb_packets);
             set_clock_speed(&is->extclk, EXTERNAL_CLOCK_SPEED_MAX);
         }
     }else {
@@ -2681,7 +2681,7 @@ static void sdl_audio_callback(void *opaque, Uint8 *stream, int len)
         SDL_AoutSetPlaybackRate(ffp->aout, ffp->pf_playback_rate);
 #endif
     }
-//    printf("mmmmmmmmm===>%f\n",ffp->pf_playback_rate);
+    printf("mmmmmmmmm===>%f\n",ffp->pf_playback_rate);
     
     if (ffp->pf_playback_volume_changed) {
         ffp->pf_playback_volume_changed = 0;
