@@ -3076,7 +3076,11 @@ static int stream_has_enough_packets(AVStream *st, int stream_id, PacketQueue *q
 
 static int is_realtime(AVFormatContext *s, int packet_buffering)
 {
-    return 1;// for test
+    printf("isreal====>%s", s->iformat->name);
+    if (!strcmp(s->iformat->name, "androidio")) {
+        return 1;
+    }
+    
     if(   !strcmp(s->iformat->name, "rtp")
        || !strcmp(s->iformat->name, "rtsp")
        || !strcmp(s->iformat->name, "sdp")
