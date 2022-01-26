@@ -3076,8 +3076,8 @@ static int stream_has_enough_packets(AVStream *st, int stream_id, PacketQueue *q
 
 static int is_realtime(AVFormatContext *s, int packet_buffering)
 {
-    printf("isreal====>%s", s->iformat->name);
-    if (!strcmp(s->iformat->name, "flv")) {//AndroidIO
+    printf("isreal====>%s===>%d", s->iformat->name, packet_buffering);
+    if (!packet_buffering) {
         return 1;
     }
     
