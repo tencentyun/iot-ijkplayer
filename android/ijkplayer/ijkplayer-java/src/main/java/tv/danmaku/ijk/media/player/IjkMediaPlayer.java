@@ -1293,4 +1293,7 @@ public final class IjkMediaPlayer extends AbstractMediaPlayer {
     public native int stopRecord();
     @Override
     public native boolean getCurrentFrame(Bitmap var1);
+    @Override
+    public native boolean setFrameSpeed(float speed);
+    
 }

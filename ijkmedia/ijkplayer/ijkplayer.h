@@ -220,4 +220,5 @@ void            ijkmp_set_frame_at_time(IjkMediaPlayer *mp, const char *path, in
 
 int ijkmp_start_record(IjkMediaPlayer *mp, const char *file_name);
 int ijkmp_stop_record(IjkMediaPlayer *mp);
+void ijkmp_set_speed(IjkMediaPlayer *mp, float speed);
 #endif

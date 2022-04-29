@@ -418,6 +418,19 @@ LABEL_RETURN:
 }
 
 static void
+IjkMediaPlayer_setFrameSpeed(JNIEnv *env, jobject thiz, jfloat value)
+{
+    IjkMediaPlayer *mp = jni_get_media_player(env, thiz);
+    JNI_CHECK_GOTO(mp, env, NULL, "mpjni: startRecord: null mp", LABEL_RETURN);
+    
+    ijkmp_set_speed(mp, value);
+    
+LABEL_RETURN:
+    ijkmp_dec_ref_p(&mp);
+    return;
+}
+
+static void
 IjkMediaPlayer_release(JNIEnv *env, jobject thiz)
 {
     MPTRACE("%s\n", __func__);
@@ -1211,6 +1224,7 @@ static JNINativeMethod g_methods[] = {
     { "getCurrentFrame",        "(Landroid/graphics/Bitmap;)Z",      (void *) IjkMediaPlayer_getCurrentFrame },
     { "startRecord",            "(Ljava/lang/String;)I",      (void *) IjkMediaPlayer_startRecord },
     { "stopRecord",             "()I",      (void *) IjkMediaPlayer_stopRecord },
+    { "setFrameSpeed",          "(F)V",     (void *) IjkMediaPlayer_setFrameSpeed },
     { "_release",               "()V",      (void *) IjkMediaPlayer_release },
     { "_reset",                 "()V",      (void *) IjkMediaPlayer_reset },
     { "setVolume",              "(FF)V",    (void *) IjkMediaPlayer_setVolume },

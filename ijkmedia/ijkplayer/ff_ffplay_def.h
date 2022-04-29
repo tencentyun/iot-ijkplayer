@@ -734,6 +734,7 @@ typedef struct FFPlayer {
     int is_first;                       // 第一帧数据
     int64_t start_pts;                  // 开始录制时pts
     int64_t start_dts;                  // 开始录制时dts
+    float audio_speed;                    //追帧速度
 } FFPlayer;
 
 #define fftime_to_milliseconds(ts) (av_rescale(ts, 1000, AV_TIME_BASE))

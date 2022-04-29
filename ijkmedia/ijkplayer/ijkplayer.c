@@ -832,3 +832,13 @@ int ijkmp_stop_record(IjkMediaPlayer *mp)
     MPTRACE("ijkmp_stopRecord()=%d\n", retval);
     return retval;
 }
+
+
+void ijkmp_set_speed(IjkMediaPlayer *mp, float speed)
+{
+    assert(mp);
+    MPTRACE("ijkmp_set_speed()\n");
+    pthread_mutex_lock(&mp->mutex);
+    ffp_set_player_rate(mp->ffplayer, speed);
+    pthread_mutex_unlock(&mp->mutex);
+}

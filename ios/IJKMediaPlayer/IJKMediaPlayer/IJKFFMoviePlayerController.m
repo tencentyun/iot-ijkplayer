@@ -1643,6 +1643,10 @@ static int ijkff_inject_callback(void *opaque, int message, void *data, size_t d
     ijkmp_stop_record(_mediaPlayer);
 }
 
+- (void)setAudioSpeed:(float)speed {
+    ijkmp_set_speed(_mediaPlayer, speed);
+}
+
 - (void)startRecordWithFileName:(NSString *)fileName {
     // 视频存储的路径
     const char *path = [fileName cStringUsingEncoding:NSUTF8StringEncoding];
