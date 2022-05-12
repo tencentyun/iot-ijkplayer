@@ -99,6 +99,10 @@ public class MediaPlayerProxy implements IMediaPlayer {
     }
 
     @Override
+    public void setFrameSpeed(float speed) { 
+    }
+
+    @Override
     public String getDataSource() {
         return mBackEndMediaPlayer.getDataSource();
     }
