@@ -2685,7 +2685,7 @@ static void sdl_audio_callback(void *opaque, Uint8 *stream, int len)
         SDL_AoutSetPlaybackRate(ffp->aout, ffp->pf_playback_rate);
 #endif
     }
-    printf("mmmmmmmmm===>%f\n",ffp->pf_playback_rate);
+//    printf("mmmmmmmmm===>%f\n",ffp->pf_playback_rate);
     
     if (ffp->pf_playback_volume_changed) {
         ffp->pf_playback_volume_changed = 0;
