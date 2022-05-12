@@ -92,6 +92,9 @@ public class IjkExoMediaPlayer extends AbstractMediaPlayer {
     }
 
     @Override
+    public void setFrameSpeed(float speed) { }
+
+    @Override
     public void setDataSource(Context context, Uri uri) {
         mDataSource = uri.toString();
         mRendererBuilder = getRendererBuilder();

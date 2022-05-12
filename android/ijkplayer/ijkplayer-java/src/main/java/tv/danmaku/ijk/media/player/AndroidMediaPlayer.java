@@ -137,6 +137,9 @@ public class AndroidMediaPlayer extends AbstractMediaPlayer {
         return false;
     }
 
+    @Override
+    public void setFrameSpeed(float speed) { }
+
     @TargetApi(Build.VERSION_CODES.M)
     private static class MediaDataSourceProxy extends MediaDataSource {
         private final IMediaDataSource mMediaDataSource;

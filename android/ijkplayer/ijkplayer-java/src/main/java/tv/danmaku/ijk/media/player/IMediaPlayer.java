@@ -217,4 +217,5 @@ public interface IMediaPlayer {
     int startRecord(String var1);
     int stopRecord();
     boolean getCurrentFrame(Bitmap var1);
+    void setFrameSpeed(float speed);
 }
