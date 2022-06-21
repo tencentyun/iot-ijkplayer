@@ -218,4 +218,5 @@ public interface IMediaPlayer {
     int stopRecord();
     boolean getCurrentFrame(Bitmap var1);
     void setFrameSpeed(float speed);
+    void setMaxPacketNum(int num);
 }

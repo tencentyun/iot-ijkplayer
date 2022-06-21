@@ -95,6 +95,9 @@ public class IjkExoMediaPlayer extends AbstractMediaPlayer {
     public void setFrameSpeed(float speed) { }
 
     @Override
+    public void setMaxPacketNum(int num) {}
+
+    @Override
     public void setDataSource(Context context, Uri uri) {
         mDataSource = uri.toString();
         mRendererBuilder = getRendererBuilder();

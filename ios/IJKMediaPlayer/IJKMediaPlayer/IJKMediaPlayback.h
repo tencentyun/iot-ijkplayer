@@ -79,6 +79,8 @@ typedef NS_ENUM(NSInteger, IJKMPMovieTimeOption) {
 - (void)startRecordWithFileName:(NSString *)fileName;
 //追帧速率设置
 - (void)setAudioSpeed:(float)speed;
+//追帧最大包设置
+- (void)setMaxPacketNum:(int)num;
 
 @property(nonatomic, readonly)  UIView *view;
 @property(nonatomic)            NSTimeInterval currentPlaybackTime;

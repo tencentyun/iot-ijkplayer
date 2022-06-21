@@ -842,3 +842,11 @@ void ijkmp_set_speed(IjkMediaPlayer *mp, float speed)
     ffp_set_player_rate(mp->ffplayer, speed);
     pthread_mutex_unlock(&mp->mutex);
 }
+
+void ijkmp_set_maxpacket(IjkMediaPlayer *mp, int num) {
+    assert(mp);
+    MPTRACE("ijkmp_set_maxpacket()\n");
+    pthread_mutex_lock(&mp->mutex);
+    ffp_set_player_maxpacket(mp->ffplayer, num);
+    pthread_mutex_unlock(&mp->mutex);
+}

@@ -103,6 +103,9 @@ public class MediaPlayerProxy implements IMediaPlayer {
     }
 
     @Override
+    public void setMaxPacketNum(int num) {}
+
+    @Override
     public String getDataSource() {
         return mBackEndMediaPlayer.getDataSource();
     }

@@ -1180,7 +1180,15 @@ static void check_external_clock_speed(VideoState *is, FFPlayer *ffp) {
            set_clock_speed(&is->extclk, speed + EXTERNAL_CLOCK_SPEED_STEP * (1.0 - speed) / fabs(1.0 - speed));
     }
 #endif
-    if (is->videoq.nb_packets > EXTERNAL_CLOCK_MAX_FRAMES) {
+    
+    static int temp_packet_num = 0;
+    if ((temp_packet_num > 0) || (ffp->packet_max_num > 0)) {
+        temp_packet_num = ffp->packet_max_num;
+    }else {
+        temp_packet_num = EXTERNAL_CLOCK_MAX_FRAMES;
+    }
+    
+    if (is->videoq.nb_packets > temp_packet_num) {
         
         int synctype = get_master_sync_type(is);
         if (synctype == AV_SYNC_AUDIO_MASTER) {
@@ -5322,6 +5330,10 @@ int ffp_stop_record(FFPlayer *ffp)
 
 void ffp_set_player_rate(FFPlayer *ffp, float speed){
     ffp->audio_speed = speed;
+}
+            
+void ffp_set_player_maxpacket(FFPlayer *ffp, int num) {
+    ffp->packet_max_num = num;
 }
             
 void ffp_set_property_int64(FFPlayer *ffp, int id, int64_t value)

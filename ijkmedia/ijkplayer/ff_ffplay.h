@@ -126,5 +126,7 @@ int       ffp_record_file(FFPlayer *ffp, AVPacket *packet);
 void      ffp_get_current_frame_l(FFPlayer *ffp, uint8_t *frame_buf);
 //设置追帧大小
 void      ffp_set_player_rate(FFPlayer *ffp, float speed);
+//设置追帧packet大小
+void      ffp_set_player_maxpacket(FFPlayer *ffp, int num);
 
 #endif
