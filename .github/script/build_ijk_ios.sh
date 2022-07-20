@@ -9,7 +9,7 @@ currtag=$(git describe --tags `git rev-list --tags --max-count=1`)
 currbra=$rb
 echo 000---$currtag
 
-sed -i "" "s/.*disable-videotoolbox.*/export COMMON_FF_CFG_FLAGS=\"\$\COMMON_FF_CFG_FLAGS --enable-videotoolbox\"/g" ./config/module-lite.sh
+#sed -i "" "s/.*disable-videotoolbox.*/export COMMON_FF_CFG_FLAGS=\"\$\COMMON_FF_CFG_FLAGS --enable-videotoolbox\"/g" ./config/module-lite.sh
 
 ./init-ios.sh
 ./init-ios-openssl.sh
