@@ -150,7 +150,7 @@ elif [ "$FF_TARGET" = "clean" ]; then
     echo "clean build cache"
     echo "================="
     rm -rf build/ffmpeg-*
-    rm -rf build/openssl-*
+#    rm -rf build/openssl-*
     rm -rf build/universal/include
     rm -rf build/universal/lib
     echo "clean success"
