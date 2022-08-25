@@ -61,6 +61,17 @@ static player_fields_t g_clazz;
 static int inject_callback(void *opaque, int type, void *data, size_t data_size);
 static bool mediacodec_select_callback(void *opaque, ijkmp_mediacodecinfo_context *mcc);
 
+typedef void (*audio_decode_pcm_handle_t)(uint8_t *pcm_buf, size_t pcm_len);
+void setAudioDecodePCMCallback(audio_decode_pcm_handle_t audio_decode_handle);
+
+typedef struct jni_info_player {
+    JavaVM *jvm;
+    JNIEnv *jenv;
+    jobject jobj;
+    jmethodID jmid;
+} jni_info_s_player;
+static jni_info_s_player audio_jni_player = {nullptr, nullptr, nullptr, nullptr};
+
 static IjkMediaPlayer *jni_get_media_player(JNIEnv* env, jobject thiz)
 {
     pthread_mutex_lock(&g_clazz.mutex);
@@ -428,6 +439,33 @@ IjkMediaPlayer_setFrameSpeed(JNIEnv *env, jobject thiz, jfloat value)
 LABEL_RETURN:
     ijkmp_dec_ref_p(&mp);
     return;
+}
+
+void _audio_decode_pcm_recv(uint8_t *data, size_t len) {
+    if (audio_jni_player.jobj) {
+
+        JNIEnv *env;
+        audio_jni_player.jvm->AttachCurrentThread(&env,0);
+        jbyteArray array = env->NewByteArray(len);
+        env->SetByteArrayRegion(array, 0, len, reinterpret_cast<jbyte *>(data));
+        env->CallVoidMethod(audio_jni_player.jobj, audio_jni_player.jmid, array, len);
+        env->DeleteLocalRef(array);
+        audio_jni_player.jvm->DetachCurrentThread();
+    } else {
+//        LOGD_DEVICE("%s##[%s][%d]:no method id for avDataRecvHandle\n", __func__, __LINE__);
+    }
+}
+
+JNIEXPORT void JNICALL
+IjkMediaPlayer_setAudioDecodePCMCallback(JNIEnv *env, jobject thiz, jobject callback) {
+    audio_jni_player.jobj = env->NewGlobalRef(callback);
+    if (audio_jni_player.jobj) {
+        jclass jclazz = env->GetObjectClass(audio_jni_player.jobj);
+        sg_jni_device.jmid = env->GetMethodID(jclazz, "audioDecodePcmDataHandle", "([BI)V");
+        setAudioDecodePCMCallback(_audio_decode_pcm_recv);
+    } else {
+        LOGD_DEVICE("callback object is null.\n");
+    }
 }
 
 static void
@@ -1278,6 +1316,8 @@ JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *reserved)
         return -1;
     }
     assert(env != NULL);
+    audio_jni_player.jvm = vm;
+    audio_jni_player.jenv = env;
 
     pthread_mutex_init(&g_clazz.mutex, NULL );
 
@@ -1295,6 +1335,10 @@ JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *reserved)
 
 JNIEXPORT void JNI_OnUnload(JavaVM *jvm, void *reserved)
 {
+    if (audio_jni_player.jobj) {
+        audio_jni_player.jenv->DeleteGlobalRef(audio_jni_player.jobj);
+        audio_jni_player.jobj = nullptr;
+    }
     ijkmp_global_uninit();
 
     pthread_mutex_destroy(&g_clazz.mutex);

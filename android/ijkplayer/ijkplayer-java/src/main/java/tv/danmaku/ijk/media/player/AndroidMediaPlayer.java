@@ -141,6 +141,9 @@ public class AndroidMediaPlayer extends AbstractMediaPlayer {
     public void setFrameSpeed(float speed) { }
 
     @Override
+    public void setAudioDecodePCMCallback(AudioDecodeCallback callback) {}
+
+    @Override
     public void setMaxPacketNum(int num) {}
 
     @TargetApi(Build.VERSION_CODES.M)

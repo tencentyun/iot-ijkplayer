@@ -1297,4 +1297,6 @@ public final class IjkMediaPlayer extends AbstractMediaPlayer {
     public native void setFrameSpeed(float speed);
     @Override
     public native void setMaxPacketNum(int num);
+    @Override
+    public native void setAudioDecodePCMCallback(AudioDecodeCallback callback);
 }

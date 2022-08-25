@@ -129,4 +129,8 @@ void      ffp_set_player_rate(FFPlayer *ffp, float speed);
 //设置追帧packet大小
 void      ffp_set_player_maxpacket(FFPlayer *ffp, int num);
 
+//音频解码pcm数据回调
+typedef void (*audio_decode_pcm_handle_t)(uint8_t *pcm_buf, size_t pcm_len);
+void      setAudioDecodePCMCallback(audio_decode_pcm_handle_t audio_decode_handle);
+
 #endif

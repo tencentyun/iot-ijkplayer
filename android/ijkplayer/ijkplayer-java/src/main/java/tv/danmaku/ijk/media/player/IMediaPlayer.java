@@ -219,4 +219,5 @@ public interface IMediaPlayer {
     boolean getCurrentFrame(Bitmap var1);
     void setFrameSpeed(float speed);
     void setMaxPacketNum(int num);
+    void setAudioDecodePCMCallback(AudioDecodeCallback callback);
 }

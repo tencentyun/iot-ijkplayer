@@ -95,6 +95,9 @@ public class IjkExoMediaPlayer extends AbstractMediaPlayer {
     public void setFrameSpeed(float speed) { }
 
     @Override
+    public void setAudioDecodePCMCallback(AudioDecodeCallback callback) {}
+
+    @Override
     public void setMaxPacketNum(int num) {}
 
     @Override

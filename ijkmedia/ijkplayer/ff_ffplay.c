@@ -2491,6 +2491,12 @@ static int synchronize_audio(VideoState *is, int nb_samples)
     return wanted_nb_samples;
 }
 
+audio_decode_pcm_handle_t ff_audio_decode_handle = NULL;
+void setAudioDecodePCMCallback(audio_decode_pcm_handle_t audio_decode_handle)
+{
+    ff_audio_decode_handle = audio_decode_handle;
+}
+
 /**
  * Decode one audio frame and return its uncompressed size.
  *
@@ -2643,6 +2649,12 @@ reload:
     } else {
         is->audio_buf = af->frame->data[0];
         resampled_data_size = data_size;
+    }
+
+    uint8_t *data = is->audio_buf;
+    size_t len = is->audio_buf_size;
+    if (ff_audio_decode_handle) {
+        ff_audio_decode_handle(data, len);
     }
 
     audio_clock0 = is->audio_clock;
