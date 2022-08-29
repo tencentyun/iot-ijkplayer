@@ -119,6 +119,10 @@ void      ffp_set_property_int64(FFPlayer *ffp, int id, int64_t value);
 // must be freed with free();
 struct IjkMediaMeta *ffp_get_meta_l(FFPlayer *ffp);
 
+//AEC
+bool getApmStatus();
+void setApmStatus(bool isOpened);
+
 //申明录制视频、截图相关方法
 int       ffp_start_record(FFPlayer *ffp, const char *file_name);
 int       ffp_stop_record(FFPlayer *ffp);

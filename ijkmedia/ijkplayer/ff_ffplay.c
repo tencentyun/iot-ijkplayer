@@ -87,6 +87,11 @@
 #define AV_CODEC_CAP_DR1 CODEC_CAP_DR1
 #endif
 
+// for AEC
+#include <pthread.h>
+pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
+#define AEC_CACHE_LEN 204800
+
 // FIXME: 9 work around NDKr8e or gcc4.7 bug
 // isnan() may not recognize some double NAN, so we test both double and float
 #if defined(__ANDROID__)
@@ -2012,6 +2017,38 @@ end:
 }
 #endif  /* CONFIG_AVFILTER */
 
+// AEC
+bool isApmStart = false;
+uint8_t * out_pcm = NULL;
+int nCurWpos = 0;
+
+// second idea...
+int getApmCache(uint8_t* pPcm)
+{
+    int nRet = 0;
+    if (NULL==out_pcm)
+        return nRet;
+    pthread_mutex_lock(&lock);
+    if (nCurWpos > 0)
+    {
+        nRet = nCurWpos;
+        memcpy(pPcm,out_pcm,nCurWpos);
+        nCurWpos = 0;
+    }
+    pthread_mutex_unlock(&lock);
+    return nRet;
+}
+
+bool getApmStatus()
+{
+    return isApmStart;
+}
+
+void setApmStatus(bool isOpened)
+{
+    isApmStart = isOpened;
+}
+
 static int audio_thread(void *arg)
 {
     FFPlayer *ffp = arg;
@@ -2039,12 +2076,109 @@ static int audio_thread(void *arg)
     if (!frame)
         return AVERROR(ENOMEM);
 
+    //////////////////////////////////////////////////////////////////////////
+    //AEC init
+    out_pcm = (uint8_t *)malloc(AEC_CACHE_LEN);
+    SwrContext * swr_ctx = NULL;
+    int nRet = 0;
+    bool isCanAEC = true;
+    int64_t src_ch_layout = AV_CH_LAYOUT_MONO, dst_ch_layout = AV_CH_LAYOUT_MONO;
+    int src_nb_channels = 1, dst_nb_channels = 1;
+    int dst_linesize = 0;
+    int src_nb_samples = 0, dst_nb_samples = 0;
+    uint8_t **dst_data = NULL;
+    int resampled_length = 0;
+    int src_rate = 16000, dst_rate = 16000;
+    enum AVSampleFormat src_sample_fmt = AV_SAMPLE_FMT_FLTP, dst_sample_fmt = AV_SAMPLE_FMT_S16;
+
+    //重新采样
+    swr_ctx = swr_alloc();
+    if (!swr_ctx)
+    {
+        av_log(NULL, AV_LOG_ERROR, "Jeffer AEC swr_alloc error \n");
+        isCanAEC = false;
+    }
+
+    if (isCanAEC)
+    {
+        av_opt_set_int(swr_ctx, "in_channel_layout",    src_ch_layout, 0);
+        av_opt_set_int(swr_ctx, "in_sample_rate",       src_rate, 0);
+        av_opt_set_sample_fmt(swr_ctx, "in_sample_fmt", src_sample_fmt, 0);
+        av_opt_set_int(swr_ctx, "out_channel_layout",    dst_ch_layout, 0);
+        av_opt_set_int(swr_ctx, "out_sample_rate",       dst_rate, 0);
+        av_opt_set_sample_fmt(swr_ctx, "out_sample_fmt", dst_sample_fmt, 0);
+        swr_init(swr_ctx);
+    }
+
+    //////////////////////////////////////////////////////////////////////////
+
     do {
         ffp_audio_statistic_l(ffp);
         if ((got_frame = decoder_decode_frame(ffp, &is->auddec, frame, NULL)) < 0)
             goto the_end;
 
         if (got_frame) {
+
+            //////////////////////////////////////////////////////////////////////////
+            // AEC farnear
+            if(isApmStart && isCanAEC)
+            {
+                src_nb_samples = frame->nb_samples;
+                if (src_nb_samples <= 0)
+                {
+                    av_log(NULL, AV_LOG_ERROR, "Jeffer AEC src_nb_samples error \n");
+                    isCanAEC = false;
+                }
+                dst_nb_samples = src_nb_samples;
+                if(!dst_data)
+                {
+                    nRet = av_samples_alloc_array_and_samples(&dst_data, &dst_linesize, dst_nb_channels, dst_nb_samples, dst_sample_fmt, 0);
+                    if (nRet < 0)
+                    {
+                        av_log(NULL, AV_LOG_ERROR, "Jeffer AEC av_samples_alloc_array_and_samples error \n");
+                        isCanAEC = false;
+                    }
+                }
+                if (swr_ctx && isCanAEC)
+                {
+                    nRet = swr_convert(swr_ctx, dst_data, dst_nb_samples, (const uint8_t **)frame->data, src_nb_samples);
+                    if (nRet <= 0)
+                    {
+                        av_log(NULL, AV_LOG_ERROR, "Jeffer AEC swr_convert error \n");
+                        isCanAEC = false;
+                    }
+                    resampled_length = av_samples_get_buffer_size(&dst_linesize, dst_nb_channels, nRet, dst_sample_fmt, 1);
+                    if(resampled_length > 0)
+                    {
+                        // AEC FAR DATA
+                        pthread_mutex_lock(&lock);
+                        int nRemainLen = AEC_CACHE_LEN - nCurWpos - resampled_length;
+                        if (nRemainLen > 0)
+                        {
+                            memcpy(out_pcm+nCurWpos,dst_data[0],resampled_length);
+                            nCurWpos += resampled_length;
+                        }
+                        else
+                        {
+                            memcpy(out_pcm,dst_data[0],resampled_length);
+                            nCurWpos = resampled_length;
+                        }
+                        pthread_mutex_unlock(&lock);
+                    }
+                    else
+                    {
+                        av_log(NULL, AV_LOG_ERROR, "Jeffer AEC av_samples_get_buffer_size error \n");
+                        isCanAEC = false;
+                    }
+                }
+                else
+                {
+                    av_log(NULL, AV_LOG_ERROR, "Jeffer AEC swr_ctx NULL error \n");
+                }
+            }
+            // AEC END
+            //////////////////////////////////////////////////////////////////////////
+
                 tb = (AVRational){1, frame->sample_rate};
                 if (ffp->enable_accurate_seek && is->audio_accurate_seek_req && !is->seek_req) {
                     frame_pts = (frame->pts == AV_NOPTS_VALUE) ? NAN : frame->pts * av_q2d(tb);
@@ -2200,6 +2334,24 @@ static int audio_thread(void *arg)
 #if CONFIG_AVFILTER
     avfilter_graph_free(&is->agraph);
 #endif
+
+    //////////////////////////////////////////////////////////////////////////
+    //AEC uninit
+    if(dst_data)
+        av_freep(&dst_data[0]);
+    av_freep(&dst_data);
+    dst_data = NULL;
+    if(swr_ctx)
+    {
+        swr_free(&swr_ctx);
+        swr_ctx = NULL;
+    }
+    if(out_pcm)
+    {
+        free(out_pcm);
+        out_pcm = NULL;
+    }
+    //////////////////////////////////////////////////////////////////////////
     av_frame_free(&frame);
     return ret;
 }

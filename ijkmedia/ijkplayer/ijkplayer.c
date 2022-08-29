@@ -685,6 +685,24 @@ void *ijkmp_set_weak_thiz(IjkMediaPlayer *mp, void *weak_thiz)
     return prev_weak_thiz;
 }
 
+//For AEC By Jeffer
+bool ijkmp_get_aec_status(IjkMediaPlayer *mp)
+{
+    assert(mp);
+    pthread_mutex_lock(&mp->mutex);
+    bool isOpened = getApmStatus();
+    pthread_mutex_unlock(&mp->mutex);
+    return isOpened;
+}
+
+void ijkmp_set_aec_status(IjkMediaPlayer *mp, bool isOpened)
+{
+    assert(mp);
+    pthread_mutex_lock(&mp->mutex);
+    setApmStatus(isOpened);
+    pthread_mutex_unlock(&mp->mutex);
+}
+
 /* need to call msg_free_res for freeing the resouce obtained in msg */
 int ijkmp_get_msg(IjkMediaPlayer *mp, AVMessage *msg, int block)
 {

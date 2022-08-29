@@ -1297,4 +1297,9 @@ public final class IjkMediaPlayer extends AbstractMediaPlayer {
     public native void setFrameSpeed(float speed);
     @Override
     public native void setMaxPacketNum(int num);
+
+    //FOR AEC
+    public native void _setApmStatus(boolean isOpened);
+    public native boolean _getApmStatus();
+    public native int _getPcmData(byte[] arrPcm);
 }
