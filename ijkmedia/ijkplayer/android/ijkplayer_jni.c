@@ -53,7 +53,7 @@
 static JavaVM* g_jvm;
 
 // for AEC
-#define AEC_CACHE_LEN 204800
+#define AEC_CACHE_LEN 102400
 // typedef unsigned char byte;
 // static byte pcm_arr[AEC_CACHE_LEN];
 uint8_t pcm_arr[AEC_CACHE_LEN];
