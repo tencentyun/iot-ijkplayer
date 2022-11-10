@@ -35,6 +35,7 @@
 
 struct SDL_Aout_Opaque {
     IJKSDLAudioQueueController *aoutController;
+//    IJKSDLAudioUnitController *aoutController;
 };
 
 static int aout_open_audio(SDL_Aout *aout, const SDL_AudioSpec *desired, SDL_AudioSpec *obtained)
@@ -44,6 +45,7 @@ static int aout_open_audio(SDL_Aout *aout, const SDL_AudioSpec *desired, SDL_Aud
     SDL_Aout_Opaque *opaque = aout->opaque;
 
     opaque->aoutController = [[IJKSDLAudioQueueController alloc] initWithAudioSpec:desired];
+//    opaque->aoutController = [[IJKSDLAudioUnitController alloc] initWithAudioSpec:desired];
     if (!opaque->aoutController) {
         ALOGE("aout_open_audio_n: failed to new AudioTrcak()\n");
         return -1;

@@ -153,10 +153,10 @@
         return;
 
     _isPaused = NO;
-    NSError *error = nil;
-    if (NO == [[AVAudioSession sharedInstance] setActive:YES error:&error]) {
-        NSLog(@"AudioUnit: AVAudioSession.setActive(YES) failed: %@\n", error ? [error localizedDescription] : @"nil");
-    }
+//    NSError *error = nil;
+//    if (NO == [[AVAudioSession sharedInstance] setActive:YES error:&error]) {
+//        NSLog(@"AudioUnit: AVAudioSession.setActive(YES) failed: %@\n", error ? [error localizedDescription] : @"nil");
+//    }
 
     OSStatus status = AudioOutputUnitStart(_auUnit);
     if (status != noErr)
@@ -235,6 +235,35 @@ static OSStatus RenderCallback(void                        *inRefCon,
 
         return noErr;
     }
+}
+- (void)setPlaybackRate:(float)playbackRate
+{
+    if (fabsf(playbackRate - 1.0f) <= 0.000001) {
+        UInt32 propValue = 1;
+//        AudioQueueSetProperty(_audioQueueRef, kAudioQueueProperty_TimePitchBypass, &propValue, sizeof(propValue));
+//        AudioQueueSetParameter(_audioQueueRef, kAudioQueueParam_PlayRate, 1.0f);
+    } else {
+        UInt32 propValue = 0;
+//        AudioQueueSetProperty(_audioQueueRef, kAudioQueueProperty_TimePitchBypass, &propValue, sizeof(propValue));
+//        AudioQueueSetParameter(_audioQueueRef, kAudioQueueParam_PlayRate, playbackRate);
+        
+//        AudioUnitSetParameter(_auUnit,kVarispeedParam_PlaybackRate,kAudioUnitScope_Global,0,playbackRate,0);
+    }
+}
+
+- (void)setPlaybackVolume:(float)playbackVolume
+{
+//    float aq_volume = playbackVolume;
+//    if (fabsf(aq_volume - 1.0f) <= 0.000001) {
+//        
+//    } else {
+//        
+//    }
+}
+
+- (double)get_latency_seconds
+{
+    return ((double)3) * _spec.samples / _spec.freq;
 }
 
 @end
