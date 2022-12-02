@@ -915,6 +915,9 @@ static void video_image_display2(FFPlayer *ffp)
             }
         }
         SDL_VoutDisplayYUVOverlay(ffp->vout, vp->bmp);
+#if defined(__ANDROID__)
+        av_log(NULL, AV_LOG_INFO, "[RTC] video_image_display2,  vp->pts=%lf\n", vp->pts);
+#endif
         ffp->stat.vfps = SDL_SpeedSamplerAdd(&ffp->vfps_sampler, FFP_SHOW_VFPS_FFPLAY, "vfps[ffplay]");
         if (!ffp->first_video_frame_rendered) {
             ffp->first_video_frame_rendered = 1;
