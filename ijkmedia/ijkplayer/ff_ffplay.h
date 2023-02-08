@@ -132,5 +132,7 @@ void      ffp_get_current_frame_l(FFPlayer *ffp, uint8_t *frame_buf);
 void      ffp_set_player_rate(FFPlayer *ffp, float speed);
 //设置追帧packet大小
 void      ffp_set_player_maxpacket(FFPlayer *ffp, int num);
+//直播清理cache
+void      ffp_flush_player_cache(FFPlayer *ffp);
 
 #endif

@@ -94,6 +94,9 @@ public class MediaPlayerProxy implements IMediaPlayer {
     }
 
     @Override
+    public void flushCache() {}
+
+    @Override
     public boolean getCurrentFrame(Bitmap var1) {
         return false;
     }

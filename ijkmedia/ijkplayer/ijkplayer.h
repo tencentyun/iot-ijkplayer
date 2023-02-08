@@ -226,4 +226,5 @@ int ijkmp_start_record(IjkMediaPlayer *mp, const char *file_name);
 int ijkmp_stop_record(IjkMediaPlayer *mp);
 void ijkmp_set_speed(IjkMediaPlayer *mp, float speed);
 void ijkmp_set_maxpacket(IjkMediaPlayer *mp, int num);
+void ijkmp_flush_cache(IjkMediaPlayer *mp);
 #endif

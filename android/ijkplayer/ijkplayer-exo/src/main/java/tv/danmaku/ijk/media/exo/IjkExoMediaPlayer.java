@@ -98,6 +98,9 @@ public class IjkExoMediaPlayer extends AbstractMediaPlayer {
     public void setMaxPacketNum(int num) {}
 
     @Override
+    public void flushCache() {}
+    
+    @Override
     public void setDataSource(Context context, Uri uri) {
         mDataSource = uri.toString();
         mRendererBuilder = getRendererBuilder();

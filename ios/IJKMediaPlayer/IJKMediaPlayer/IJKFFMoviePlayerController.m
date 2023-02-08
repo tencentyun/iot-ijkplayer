@@ -1656,7 +1656,9 @@ static int ijkff_inject_callback(void *opaque, int message, void *data, size_t d
     const char *path = [fileName cStringUsingEncoding:NSUTF8StringEncoding];
     ijkmp_start_record(_mediaPlayer, path);
 }
-
+- (void)flushCache {
+    ijkmp_flush_cache(_mediaPlayer);
+}
 #pragma mark Option Conventionce
 
 - (void)setFormatOptionValue:(NSString *)value forKey:(NSString *)key

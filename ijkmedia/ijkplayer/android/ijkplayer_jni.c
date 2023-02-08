@@ -444,9 +444,22 @@ IjkMediaPlayer_setMaxPacketNum(JNIEnv *env, jobject thiz, jint value)
 
     ijkmp_set_maxpacket(mp, value);
 
-    LABEL_RETURN:
+LABEL_RETURN:
     ijkmp_dec_ref_p(&mp);
     return;
+}
+
+static void
+IjkMediaPlayer_flushCache(JNIEnv *env, jobject thiz)
+{
+    IjkMediaPlayer *mp = jni_get_media_player(env, thiz);
+    JNI_CHECK_GOTO(mp, env, NULL, "mpjni: flushCache: null mp", LABEL_RETURN);
+
+    ijkmp_flush_cache(mp);
+
+LABEL_RETURN:
+    ijkmp_dec_ref_p(&mp);
+    return ;
 }
 
 static void
@@ -1296,6 +1309,8 @@ static JNINativeMethod g_methods[] = {
     { "getCurrentFrame",        "(Landroid/graphics/Bitmap;)Z",      (void *) IjkMediaPlayer_getCurrentFrame },
     { "startRecord",            "(Ljava/lang/String;)I",      (void *) IjkMediaPlayer_startRecord },
     { "stopRecord",             "()I",      (void *) IjkMediaPlayer_stopRecord },
+    { "flushCache",             "()V",      (void *) IjkMediaPlayer_flushCache },
+
     { "setFrameSpeed",          "(F)V",     (void *) IjkMediaPlayer_setFrameSpeed },
     { "setMaxPacketNum",        "(I)V",     (void *) IjkMediaPlayer_setMaxPacketNum },
     { "_release",               "()V",      (void *) IjkMediaPlayer_release },

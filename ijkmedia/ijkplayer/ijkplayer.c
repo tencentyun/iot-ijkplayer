@@ -868,3 +868,12 @@ void ijkmp_set_maxpacket(IjkMediaPlayer *mp, int num) {
     ffp_set_player_maxpacket(mp->ffplayer, num);
     pthread_mutex_unlock(&mp->mutex);
 }
+
+void ijkmp_flush_cache(IjkMediaPlayer *mp)
+{
+    assert(mp);
+    MPTRACE("ffp_flush_player_cache()\n");
+    pthread_mutex_lock(&mp->mutex);
+    ffp_flush_player_cache(mp->ffplayer);
+    pthread_mutex_unlock(&mp->mutex);
+}

@@ -5490,6 +5490,22 @@ void ffp_set_player_rate(FFPlayer *ffp, float speed){
 void ffp_set_player_maxpacket(FFPlayer *ffp, int num) {
     ffp->packet_max_num = num;
 }
+
+void ffp_flush_player_cache(FFPlayer *ffp) {
+            
+            VideoState *is = ffp->is;
+            if (is->audio_stream >= 0) {
+                packet_queue_flush(&is->audioq);
+                packet_queue_put(&is->audioq, &flush_pkt);
+                // TODO: clear invaild audio data
+                // SDL_AoutFlushAudio(ffp->aout);
+            }
+            
+            if (is->video_stream >= 0) {
+                packet_queue_flush(&is->videoq);
+                packet_queue_put(&is->videoq, &flush_pkt);
+            }
+}
             
 void ffp_set_property_int64(FFPlayer *ffp, int id, int64_t value)
 {

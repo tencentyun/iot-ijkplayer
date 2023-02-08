@@ -143,6 +143,9 @@ public class AndroidMediaPlayer extends AbstractMediaPlayer {
     @Override
     public void setMaxPacketNum(int num) {}
 
+    @Override
+    public void flushCache() {}
+
     @TargetApi(Build.VERSION_CODES.M)
     private static class MediaDataSourceProxy extends MediaDataSource {
         private final IMediaDataSource mMediaDataSource;
