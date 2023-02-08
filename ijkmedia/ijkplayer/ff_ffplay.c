@@ -259,6 +259,39 @@ static void packet_queue_flush(PacketQueue *q)
     SDL_UnlockMutex(q->mutex);
 }
 
+static void packet_queue_flush_videocache(PacketQueue *q)
+{
+    MyAVPacketList *pkt, *pkt1;
+
+    SDL_LockMutex(q->mutex);
+    for (pkt = q->first_pkt; pkt; pkt = pkt1) {
+        pkt1 = pkt->next;
+        
+        if ((&pkt->pkt)->flags & AV_PKT_FLAG_KEY) {
+            q->last_pkt = pkt;
+            q->first_pkt = pkt;
+            q->nb_packets = 1;
+            q->size = 1;
+            q->duration = MIN_PKT_DURATION;
+            continue;
+        }
+        
+        av_packet_unref(&pkt->pkt);
+#ifdef FFP_MERGE
+        av_freep(&pkt);
+#else
+        pkt->next = q->recycle_pkt;
+        q->recycle_pkt = pkt;
+#endif
+    }
+//    q->last_pkt = NULL;
+//    q->first_pkt = NULL;
+//    q->nb_packets = 0;
+//    q->size = 0;
+//    q->duration = 0;
+    SDL_UnlockMutex(q->mutex);
+}
+    
 static void packet_queue_destroy(PacketQueue *q)
 {
     packet_queue_flush(q);
@@ -5502,7 +5535,7 @@ void ffp_flush_player_cache(FFPlayer *ffp) {
             }
             
             if (is->video_stream >= 0) {
-                packet_queue_flush(&is->videoq);
+                packet_queue_flush_videocache(&is->videoq);
                 packet_queue_put(&is->videoq, &flush_pkt);
             }
 }
