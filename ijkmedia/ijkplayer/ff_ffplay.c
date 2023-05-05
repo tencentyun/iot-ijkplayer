@@ -3884,7 +3884,7 @@ static int read_thread(void *arg)
 //
 //                }
 //            }
-            if (!ffp->real_record && (pkt->flags & AV_PKT_FLAG_KEY)) { //遇到关键帧打开开关,quicktime比较严格
+            if (!ffp->real_record && (pkt->flags & AV_PKT_FLAG_KEY) && (pkt->stream_index == is->video_stream)) { //遇到关键帧打开开关,quicktime比较严格
                 MPTRACE("===== now III sample_rate =====\n");
                 ffp->real_record = true;
             }
