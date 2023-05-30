@@ -134,5 +134,6 @@ void      ffp_set_player_rate(FFPlayer *ffp, float speed);
 void      ffp_set_player_maxpacket(FFPlayer *ffp, int num);
 //直播清理cache
 void      ffp_flush_player_cache(FFPlayer *ffp);
+int       parse_sei(AVPacket *pkt, uint8_t *uuid, uint8_t **content, int *size);
 
 #endif

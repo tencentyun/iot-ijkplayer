@@ -3830,6 +3830,26 @@ static int read_thread(void *arg)
             }
         }
 
+            
+        //parse SEI message
+        if (pkt->stream_index == is->video_stream) {
+            
+            uint8_t uuid[16];
+            uint8_t *content;
+            int size;
+            ret = parse_sei(pkt, uuid, &content, &size);
+            
+            if (ret == 0 && size > 0 && content != NULL) {
+                // use content and uuid
+                printf(" SEI===CONT===%s \n SEI===UUID===",content);
+                for (int inddd = 0; inddd < 16; inddd++) {
+                    printf("%02x ", uuid[inddd]);
+                }
+                printf("\n SEI===SIZE===%d \n",size);
+            }
+        }
+        
+            
         /* check if packet is in play range specified by user, then queue, otherwise discard */
         stream_start_time = ic->streams[pkt->stream_index]->start_time;
         pkt_ts = pkt->pts == AV_NOPTS_VALUE ? pkt->dts : pkt->pts;
@@ -5538,6 +5558,57 @@ void ffp_flush_player_cache(FFPlayer *ffp) {
                 packet_queue_flush_videocache(&is->videoq);
                 packet_queue_put(&is->videoq, &flush_pkt);
             }
+}
+            
+int parse_sei(AVPacket *pkt, uint8_t *uuid, uint8_t **content, int *size)
+{
+//    printf("\n SEI===LENT===%d \n",pkt->size);
+            
+    uint8_t *p = pkt->data;
+    uint8_t *p_end = p + pkt->size;
+    *content = NULL;
+    *size = 0;
+    
+    /* 打印 nalu
+    uint8_t *SEI_p = pkt->data;
+    uint8_t *SEI_p_end = SEI_p + pkt->size;
+    if (SEI_p[4] == 0x06 && SEI_p[5] == 0x05) {
+        while (SEI_p < SEI_p_end) {
+            printf("%02x ",*SEI_p);
+            SEI_p++;
+        }
+    }
+    //*/
+            
+    p += 4; //flv nalu跳过前4个字节
+    
+    while (p < p_end) {
+        if (p[0] == 0x06 && p[1] == 0x05 && p + 2 < p_end) { // found SEI NAL;  payload_type = 5 表示 user_data_unregistered;
+            
+            int payload_size = 0;
+            
+            p += 2;//跳过06 05 解析size
+            while( p[0] == 0xFF){
+                payload_size += 255;
+                p++;
+            }
+            payload_size += *p++;
+            
+            
+            printf("\n SEI===PAYLOADLENT===%d \n",payload_size);
+            if (payload_size < 16)
+                return -1;
+            
+            memcpy(uuid, p, 16);
+            
+            *content = p + 16;
+            *size = payload_size - 16;
+
+        }
+        
+        p = p_end; // skip SEI for now
+    }
+    return 0;
 }
             
 void ffp_set_property_int64(FFPlayer *ffp, int id, int64_t value)
