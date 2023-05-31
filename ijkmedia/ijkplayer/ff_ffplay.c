@@ -5559,7 +5559,15 @@ void ffp_flush_player_cache(FFPlayer *ffp) {
                 packet_queue_put(&is->videoq, &flush_pkt);
             }
 }
-            
+
+uint32_t convert_hex_to_decimal(uint8_t *hex_data) {
+    uint32_t decimal_value = 0;
+    for (int i = 0; i < 4; i++) {
+        decimal_value = (decimal_value << 8) | hex_data[i];
+    }
+    return decimal_value;
+}
+
 int parse_sei(AVPacket *pkt, uint8_t *uuid, uint8_t **content, int *size)
 {
 //    printf("\n SEI===LENT===%d \n",pkt->size);
@@ -5580,14 +5588,15 @@ int parse_sei(AVPacket *pkt, uint8_t *uuid, uint8_t **content, int *size)
     }
     //*/
             
-    p += 4; //flv nalu跳过前4个字节
-    
+    uint32_t nalu_len = convert_hex_to_decimal(p);
+//    printf("\n SEI===nalu_len===%d \n",nalu_len);
+            
     while (p < p_end) {
-        if (p[0] == 0x06 && p[1] == 0x05 && p + 2 < p_end) { // found SEI NAL;  payload_type = 5 表示 user_data_unregistered;
+        if (p[4] == 0x06 && p[5] == 0x05 && p + 2 < p_end) { // found SEI NAL;  payload_type = 5 表示 user_data_unregistered;
             
             int payload_size = 0;
             
-            p += 2;//跳过06 05 解析size
+            p += 6;//跳过len 和 06 05 解析payloadsize  （annexB nalu跳过前4个字节）
             while( p[0] == 0xFF){
                 payload_size += 255;
                 p++;
@@ -5604,11 +5613,16 @@ int parse_sei(AVPacket *pkt, uint8_t *uuid, uint8_t **content, int *size)
             *content = p + 16;
             *size = payload_size - 16;
 
+            return 0;
+        }else { // not found contuie
+            p = p + 4 + nalu_len;
+            nalu_len = convert_hex_to_decimal(p); //更新为下一个nalu len
+            continue;
         }
         
-        p = p_end; // skip SEI for now
+//        p = p_end; // skip SEI for now
     }
-    return 0;
+    return -1;
 }
             
 void ffp_set_property_int64(FFPlayer *ffp, int id, int64_t value)
