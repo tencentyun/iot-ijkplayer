@@ -1165,6 +1165,18 @@ inline static void fillMetaInternal(NSMutableDictionary *meta, IjkMediaMeta *raw
              userInfo:@{IJKMPMoviePlayerPlaybackDidFinishReasonUserInfoKey: @(IJKMPMovieFinishReasonPlaybackEnded)}];
             break;
         }
+        case FFP_MSG_VIDEO_SEI: {
+
+//            printf("\n 1FFP_MSG_VIDEO_SEI===%s \n ",avmsg->obj);
+            NSString *sei_content = [NSString stringWithCString:avmsg->obj encoding:NSUTF8StringEncoding];
+            
+            NSLog(@"FFP_MSG_VIDEO_SEI: %@\n", sei_content);//avmsg->arg1, avmsg->arg2
+            [[NSNotificationCenter defaultCenter]
+             postNotificationName:IJKMPMoviePlayerPlaybackStateDidChangeNotification
+             object:self
+             userInfo:@{@"FFP_MSG_VIDEO_SEI_CONTENT": sei_content}];
+            break;
+        }
         case FFP_MSG_VIDEO_SIZE_CHANGED:
             NSLog(@"FFP_MSG_VIDEO_SIZE_CHANGED: %d, %d\n", avmsg->arg1, avmsg->arg2);
             if (avmsg->arg1 > 0)

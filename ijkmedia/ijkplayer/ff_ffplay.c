@@ -3841,11 +3841,13 @@ static int read_thread(void *arg)
             
             if (ret == 0 && size > 0 && content != NULL) {
                 // use content and uuid
-                printf(" SEI===CONT===%s \n SEI===UUID===",content);
+                /*printf(" SEI===CONT===%s \n SEI===UUID===",content);
                 for (int inddd = 0; inddd < 16; inddd++) {
                     printf("%02x ", uuid[inddd]);
                 }
-                printf("\n SEI===SIZE===%d \n",size);
+                printf("\n SEI===SIZE===%d \n",size);*/
+                
+                ffp_notify_msg4(ffp, FFP_MSG_VIDEO_SEI, 0, 0, content, size);
             }
         }
         
@@ -5604,7 +5606,7 @@ int parse_sei(AVPacket *pkt, uint8_t *uuid, uint8_t **content, int *size)
             payload_size += *p++;
             
             
-            printf("\n SEI===PAYLOADLENT===%d \n",payload_size);
+//            printf("\n SEI===PAYLOADLENT===%d \n",payload_size);
             if (payload_size < 16)
                 return -1;
             
