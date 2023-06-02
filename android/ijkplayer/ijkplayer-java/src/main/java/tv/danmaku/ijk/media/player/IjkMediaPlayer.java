@@ -75,7 +75,7 @@ public final class IjkMediaPlayer extends AbstractMediaPlayer {
     private static final int MEDIA_BUFFERING_UPDATE = 3;
     private static final int MEDIA_SEEK_COMPLETE = 4;
     private static final int MEDIA_SET_VIDEO_SIZE = 5;
-    private static final int MEDIA_SET_VIDEO_SEI  = 7,        // arg1 = width, arg2 = height, obj = SEI Content
+    private static final int MEDIA_SET_VIDEO_SEI  = 7;        // arg1 = width, arg2 = height, obj = SEI Content
     private static final int MEDIA_TIMED_TEXT = 99;
     private static final int MEDIA_ERROR = 100;
     private static final int MEDIA_INFO = 200;
