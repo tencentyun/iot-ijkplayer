@@ -302,6 +302,11 @@ public class MediaPlayerProxy implements IMediaPlayer {
                 public boolean onInfo(IMediaPlayer mp, int what, int extra) {
                     return finalListener.onInfo(MediaPlayerProxy.this, what, extra);
                 }
+
+                @Override
+                public boolean onInfoSEI(IMediaPlayer mp, int what, int extra, String seicontent) {
+                    return finalListener.onInfoSEI(MediaPlayerProxy.this, what, extra, seicontent);
+                }
             });
         } else {
             mBackEndMediaPlayer.setOnInfoListener(null);

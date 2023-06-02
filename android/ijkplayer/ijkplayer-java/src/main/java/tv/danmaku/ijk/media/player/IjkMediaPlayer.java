@@ -1043,7 +1043,7 @@ public final class IjkMediaPlayer extends AbstractMediaPlayer {
                 }
                 return;
             case MEDIA_SET_VIDEO_SEI:
-                if (msg.obj) {
+                if (msg.obj != null) {
                     player.notifyOnInfoSEI(msg.arg1, msg.arg2, (String)msg.obj);
                 }
                 break;
