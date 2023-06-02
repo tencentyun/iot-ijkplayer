@@ -1026,6 +1026,14 @@ static void message_loop_n(JNIEnv *env, IjkMediaPlayer *mp)
             MPTRACE("FFP_MSG_COMPLETED:\n");
             post_event(env, weak_thiz, MEDIA_PLAYBACK_COMPLETE, 0, 0);
             break;
+        case FFP_MSG_VIDEO_SEI:
+            MPTRACE("FFP_MSG_VIDEO_SEI: %s\n", msg.obj);
+            if (msg.obj) {
+                jstring text = (*env)->NewStringUTF(env, (char *)msg.obj);
+                post_event2(env, weak_thiz, MEDIA_SET_VIDEO_SEI, 0, 0, text);
+                J4A_DeleteLocalRef__p(env, &text);
+            }
+            break;
         case FFP_MSG_VIDEO_SIZE_CHANGED:
             MPTRACE("FFP_MSG_VIDEO_SIZE_CHANGED: %d, %d\n", msg.arg1, msg.arg2);
             post_event(env, weak_thiz, MEDIA_SET_VIDEO_SIZE, msg.arg1, msg.arg2);
