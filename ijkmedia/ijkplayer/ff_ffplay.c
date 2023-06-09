@@ -3830,27 +3830,28 @@ static int read_thread(void *arg)
             }
         }
 
-            
         //parse SEI message
-        if (pkt->stream_index == is->video_stream) {
-            
-            uint8_t uuid[16];
-            uint8_t *content;
-            int size;
-            ret = parse_sei(pkt, uuid, &content, &size);
-            
-            if (ret == 0 && size > 0 && content != NULL) {
-                // use content and uuid
-                /*printf(" SEI===CONT===%s \n SEI===UUID===",content);
-                for (int inddd = 0; inddd < 16; inddd++) {
-                    printf("%02x ", uuid[inddd]);
-                }
-                printf("\n SEI===SIZE===%d \n",size);*/
+        if (is->video_st && is->video_st->codecpar) {
+            AVCodecParameters *in_codecpar = is->video_st->codecpar;
+            //        if (in_codecpar->codec_type == AVMEDIA_TYPE_VIDEO && in_codecpar->codec_id == AV_CODEC_ID_H264) {
+            if (pkt->stream_index == is->video_stream &&  in_codecpar->codec_id == AV_CODEC_ID_H264) {
                 
-                ffp_notify_msg4(ffp, FFP_MSG_VIDEO_SEI, 0, 0, content, size);
+                uint8_t uuid[16];
+                uint8_t *content;
+                int size;
+                ret = parse_sei(pkt, uuid, &content, &size);
+                
+                if (ret == 0 && size > 0 && content != NULL) {
+                    // use content and uuid
+                    /*printf(" SEI===CONT===%s \n SEI===UUID===",content);
+                     for (int inddd = 0; inddd < 16; inddd++) {
+                     printf("%02x ", uuid[inddd]);
+                     }
+                     printf("\n SEI===SIZE===%d \n",size);*/
+                    ffp_notify_msg4(ffp, FFP_MSG_VIDEO_SEI, 0, 0, content, size);
+                }
             }
         }
-        
             
         /* check if packet is in play range specified by user, then queue, otherwise discard */
         stream_start_time = ic->streams[pkt->stream_index]->start_time;
