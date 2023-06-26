@@ -5657,11 +5657,11 @@ int parse_sei_hevc(AVPacket *pkt, uint8_t *uuid, uint8_t **content, int *size)
 //    printf("\n SEI===nalu_len===%d \n",nalu_len);
             
     while (p < p_end) {
-        if (p[4] == 0x4E && p[5] == 0x05 && p + 2 < p_end) { // found SEI NAL;  payload_type = 5 表示 user_data_unregistered;
+        if (p[4] == 0x4E && p[5] == 0x01 && p[6] == 0x05 && p + 3 < p_end) { // found SEI NAL;  payload_type = 5 表示 user_data_unregistered;
             
             int payload_size = 0;
             
-            p += 6;//跳过len 和 06 05 解析payloadsize  （annexB nalu跳过前4个字节）
+            p += 7;//跳过len 和 4e 01 05 解析payloadsize  （annexB nalu跳过前4个字节）
             while( p[0] == 0xFF){
                 payload_size += 255;
                 p++;
