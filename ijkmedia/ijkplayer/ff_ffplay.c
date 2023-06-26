@@ -3834,12 +3834,16 @@ static int read_thread(void *arg)
         if (is->video_st && is->video_st->codecpar) {
             AVCodecParameters *in_codecpar = is->video_st->codecpar;
             //        if (in_codecpar->codec_type == AVMEDIA_TYPE_VIDEO && in_codecpar->codec_id == AV_CODEC_ID_H264) {
-            if (pkt->stream_index == is->video_stream &&  in_codecpar->codec_id == AV_CODEC_ID_H264) {
+            if (pkt->stream_index == is->video_stream) {
                 
                 uint8_t uuid[16];
-                uint8_t *content;
-                int size;
-                ret = parse_sei(pkt, uuid, &content, &size);
+                uint8_t *content = NULL;
+                int size = 0;
+                if (in_codecpar->codec_id == AV_CODEC_ID_H264) {
+                    ret = parse_sei(pkt, uuid, &content, &size);
+                }else if (in_codecpar->codec_id == AV_CODEC_ID_HEVC) {
+                    ret = parse_sei_hevc(pkt, uuid, &content, &size);
+                }
                 
                 if (ret == 0 && size > 0 && content != NULL) {
                     // use content and uuid
@@ -5627,6 +5631,65 @@ int parse_sei(AVPacket *pkt, uint8_t *uuid, uint8_t **content, int *size)
     }
     return -1;
 }
+
+
+int parse_sei_hevc(AVPacket *pkt, uint8_t *uuid, uint8_t **content, int *size)
+{
+//    printf("\n SEI===LENT===%d \n",pkt->size);
+            
+    uint8_t *p = pkt->data;
+    uint8_t *p_end = p + pkt->size;
+    *content = NULL;
+    *size = 0;
+    
+    /* 打印 nalu
+    uint8_t *SEI_p = pkt->data;
+    uint8_t *SEI_p_end = SEI_p + pkt->size;
+    if (SEI_p[4] == 0x06 && SEI_p[5] == 0x05) {
+        while (SEI_p < SEI_p_end) {
+            printf("%02x ",*SEI_p);
+            SEI_p++;
+        }
+    }
+    //*/
+            
+    uint32_t nalu_len = convert_hex_to_decimal(p);
+//    printf("\n SEI===nalu_len===%d \n",nalu_len);
+            
+    while (p < p_end) {
+        if (p[4] == 0x4E && p[5] == 0x05 && p + 2 < p_end) { // found SEI NAL;  payload_type = 5 表示 user_data_unregistered;
+            
+            int payload_size = 0;
+            
+            p += 6;//跳过len 和 06 05 解析payloadsize  （annexB nalu跳过前4个字节）
+            while( p[0] == 0xFF){
+                payload_size += 255;
+                p++;
+            }
+            payload_size += *p++;
+            
+            
+//            printf("\n SEI===PAYLOADLENT===%d \n",payload_size);
+            if (payload_size < 16)
+                return -1;
+            
+            memcpy(uuid, p, 16);
+            
+            *content = p + 16;
+            *size = payload_size - 16;
+
+            return 0;
+        }else { // not found contuie
+            p = p + 4 + nalu_len;
+            nalu_len = convert_hex_to_decimal(p); //更新为下一个nalu len
+            continue;
+        }
+        
+//        p = p_end; // skip SEI for now
+    }
+    return -1;
+}
+            
             
 void ffp_set_property_int64(FFPlayer *ffp, int id, int64_t value)
 {
