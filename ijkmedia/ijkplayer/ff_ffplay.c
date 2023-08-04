@@ -1244,8 +1244,16 @@ static void check_external_clock_speed(VideoState *is, FFPlayer *ffp) {
             set_clock_speed(&is->extclk, EXTERNAL_CLOCK_SPEED_MAX);
         }
     }else {
-        ffp_set_playback_rate(ffp, 1);
-        set_clock_speed(&is->extclk, 1);
+        if (is->video_stream < 0 && is->audioq.nb_packets > temp_packet_num) {
+            if (ffp->audio_speed > 1) {
+                ffp_set_playback_rate(ffp, ffp->audio_speed);
+            }else {
+                ffp_set_playback_rate(ffp, EXTERNAL_CLOCK_SPEED_MAX);
+            }
+        }else {
+            ffp_set_playback_rate(ffp, 1);
+            set_clock_speed(&is->extclk, 1);
+        }
     }
 //#endif
 }
