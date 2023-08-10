@@ -3839,7 +3839,13 @@ static int read_thread(void *arg)
         }
 
         //parse SEI message
-        if (is->video_st && is->video_st->codecpar) {
+//        if (ic->iformat->name != NULL && strcmp(ic->iformat->name, "flv") == 0) {
+//            printf("\nThe stream is FLV format,%s\n",ic->iformat->name);
+//        } else {
+//            printf("\nThe stream is not FLV format,%s\n",ic->iformat->name);
+//        }
+
+        if (ic->iformat->name != NULL && strcmp(ic->iformat->name, "flv") == 0 && is->video_st && is->video_st->codecpar) {
             AVCodecParameters *in_codecpar = is->video_st->codecpar;
             //        if (in_codecpar->codec_type == AVMEDIA_TYPE_VIDEO && in_codecpar->codec_id == AV_CODEC_ID_H264) {
             if (pkt->stream_index == is->video_stream) {
