@@ -53,7 +53,7 @@
 static JavaVM* g_jvm;
 
 // for AEC
-#define AEC_CACHE_LEN 102400
+#define AEC_CACHE_LEN 10240
 // typedef unsigned char byte;
 // static byte pcm_arr[AEC_CACHE_LEN];
 uint8_t pcm_arr[AEC_CACHE_LEN];
@@ -1274,7 +1274,7 @@ IjkMediaPlayer_getPcmData(JNIEnv *env, jobject thiz, jbyteArray jarr_pcm)
     jsize in_size = (*env)->GetArrayLength(env, jarr_pcm);
     if (in_size < AEC_CACHE_LEN)
     {
-        ALOGE("Jeffer jni input size < 204800\n");
+        ALOGE("Jeffer jni input size < 10240\n");
         ijkmp_set_aec_status(mp, false);
         return ret;
     }
