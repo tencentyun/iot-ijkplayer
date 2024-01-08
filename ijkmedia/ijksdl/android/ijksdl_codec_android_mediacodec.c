@@ -285,7 +285,6 @@ ssize_t SDL_AMediaCodecFake_dequeueOutputBuffer(SDL_AMediaCodec* acodec, SDL_AMe
     }
 
     assert(acodec->func_dequeueOutputBuffer);
-    ALOGI("[RTC] func_dequeueOutputBuffer , info %d", (int)info->size);
     return acodec->func_dequeueOutputBuffer(acodec, info, timeoutUs);
 }
 
