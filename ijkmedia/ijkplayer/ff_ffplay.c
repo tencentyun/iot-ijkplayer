@@ -90,7 +90,7 @@
 // for AEC
 #include <pthread.h>
 pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
-#define AEC_CACHE_LEN 10240
+#define AEC_CACHE_LEN 102400
 
 // FIXME: 9 work around NDKr8e or gcc4.7 bug
 // isnan() may not recognize some double NAN, so we test both double and float
