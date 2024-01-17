@@ -76,6 +76,7 @@ public final class IjkMediaPlayer extends AbstractMediaPlayer {
     private static final int MEDIA_SEEK_COMPLETE = 4;
     private static final int MEDIA_SET_VIDEO_SIZE = 5;
     private static final int MEDIA_SET_VIDEO_SEI  = 7;        // arg1 = width, arg2 = height, obj = SEI Content
+    private static final int MEDIA_AUDIO_PCM_DATA  = 8;       // obj = PCM data, arg1 = PCM size
     private static final int MEDIA_TIMED_TEXT = 99;
     private static final int MEDIA_ERROR = 100;
     private static final int MEDIA_INFO = 200;
@@ -1045,6 +1046,12 @@ public final class IjkMediaPlayer extends AbstractMediaPlayer {
             case MEDIA_SET_VIDEO_SEI:
                 if (msg.obj != null) {
                     player.notifyOnInfoSEI(msg.arg1, msg.arg2, (String)msg.obj);
+                }
+                break;
+
+            case MEDIA_AUDIO_PCM_DATA:
+                if (msg.obj != null) {
+                    player.notifyOnInfoAudioPcmData((byte[])msg.obj, msg.arg1);
                 }
                 break;
             case MEDIA_NOP: // interface test message - ignore

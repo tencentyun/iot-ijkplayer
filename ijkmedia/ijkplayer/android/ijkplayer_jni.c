@@ -1034,6 +1034,19 @@ static void message_loop_n(JNIEnv *env, IjkMediaPlayer *mp)
                 J4A_DeleteLocalRef__p(env, &text);
             }
             break;
+        case FFP_MSG_PCM_DATA:
+            MPTRACE("FFP_MSG_PCM_DATA:\n",);
+            if (msg.obj) {
+                // 创建一个 byte[] 数组   长度msg.arg1
+                jbyteArray byteArray = (*env)->NewByteArray(env, msg.arg1);
+                if (byteArray != NULL) {
+                    // 将数据拷贝到 byte[] 数组中
+                    (*env)->SetByteArrayRegion(env, byteArray, 0, msg.arg1, (jbyte *)msg.obj);
+                    post_event2(env, weak_thiz, MEDIA_AUDIO_PCM_DATA, msg.arg1, 0, byteArray);
+                    J4A_DeleteLocalRef__p(env, &byteArray);
+                }
+            }
+            break;
         case FFP_MSG_VIDEO_SIZE_CHANGED:
             MPTRACE("FFP_MSG_VIDEO_SIZE_CHANGED: %d, %d\n", msg.arg1, msg.arg2);
             post_event(env, weak_thiz, MEDIA_SET_VIDEO_SIZE, msg.arg1, msg.arg2);
