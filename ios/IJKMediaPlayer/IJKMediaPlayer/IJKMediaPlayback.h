@@ -232,5 +232,6 @@ typedef NS_ENUM(NSInteger, IJKMediaEvent) {
 @protocol IJKMediaNativeInvokeDelegate <NSObject>
 
 - (int)invoke:(IJKMediaEvent)event attributes:(NSDictionary *)attributes;
+- (void)onRemoteUserAudioFrame:(void *)pcmdata len:(int)pcmlen;
 
 @end

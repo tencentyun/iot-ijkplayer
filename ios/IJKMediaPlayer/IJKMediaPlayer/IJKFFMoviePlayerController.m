@@ -1178,19 +1178,24 @@ inline static void fillMetaInternal(NSMutableDictionary *meta, IjkMediaMeta *raw
         case FFP_MSG_VIDEO_SEI: {
 
 //            printf("\n 1FFP_MSG_VIDEO_SEI===%s \n ",avmsg->obj);
-            NSString *sei_content = [NSString stringWithCString:avmsg->obj encoding:NSUTF8StringEncoding];
-            
+            NSString *sei_content = [NSString stringWithCString:avmsg->obj encoding:NSASCIIStringEncoding];
             NSLog(@"FFP_MSG_VIDEO_SEI: %@\n", sei_content);//avmsg->arg1, avmsg->arg2
-            [[NSNotificationCenter defaultCenter]
-             postNotificationName:IJKMPMoviePlayerPlaybackStateDidChangeNotification
-             object:self
-             userInfo:@{@"FFP_MSG_VIDEO_SEI_CONTENT": sei_content}];
+            if (sei_content) {
+                [[NSNotificationCenter defaultCenter]
+                 postNotificationName:IJKMPMoviePlayerPlaybackStateDidChangeNotification
+                 object:self
+                 userInfo:@{@"FFP_MSG_VIDEO_SEI_CONTENT": sei_content}];
+            }
             break;
         }
         case FFP_MSG_PCM_DATA: {
 
-            printf("\n FFP_MSG_PCM_DATA===%d \n ",avmsg->arg2);
-            NSData *pcmdata = [NSData dataWithBytes:avmsg->obj length:avmsg->arg2];
+//            printf("\n FFP_MSG_PCM_DATA===%d \n ",avmsg->arg2);
+            id<IJKMediaNativeInvokeDelegate> delegate = self.nativeInvokeDelegate;
+            if (delegate != nil) {
+                [delegate onRemoteUserAudioFrame:avmsg->obj len:avmsg->arg2];
+            }
+//            NSData *pcmdata = [NSData dataWithBytes:avmsg->obj length:avmsg->arg2];
 //            [_fileHandle writeData:pcmdata];
             break;
         }
