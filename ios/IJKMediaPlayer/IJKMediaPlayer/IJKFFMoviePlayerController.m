@@ -389,6 +389,15 @@ void IJKFFIOStatCompleteRegister(void (*cb)(const char *url,
 
 - (void)prepareToPlay
 {
+//        NSFileManager *fileManager = [NSFileManager defaultManager];
+//        NSArray *paths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
+//        NSString *documentsDirectory = [paths firstObject];
+//    
+//        NSString *h264File = [documentsDirectory stringByAppendingPathComponent:@"ijkplayer.pcm"];
+//        [fileManager removeItemAtPath:h264File error:nil];
+//        [fileManager createFileAtPath:h264File contents:nil attributes:nil];
+//        _fileHandle = [NSFileHandle fileHandleForWritingAtPath:h264File];
+
     if (!_mediaPlayer)
         return;
 
@@ -1017,6 +1026,7 @@ inline static void fillMetaInternal(NSMutableDictionary *meta, IjkMediaMeta *raw
     }
 }
 
+//NSFileHandle *_fileHandle;
 - (void)postEvent: (IJKFFMoviePlayerMessage *)msg
 {
     if (!msg)
@@ -1175,6 +1185,13 @@ inline static void fillMetaInternal(NSMutableDictionary *meta, IjkMediaMeta *raw
              postNotificationName:IJKMPMoviePlayerPlaybackStateDidChangeNotification
              object:self
              userInfo:@{@"FFP_MSG_VIDEO_SEI_CONTENT": sei_content}];
+            break;
+        }
+        case FFP_MSG_PCM_DATA: {
+
+            printf("\n FFP_MSG_PCM_DATA===%d \n ",avmsg->arg2);
+            NSData *pcmdata = [NSData dataWithBytes:avmsg->obj length:avmsg->arg2];
+//            [_fileHandle writeData:pcmdata];
             break;
         }
         case FFP_MSG_VIDEO_SIZE_CHANGED:

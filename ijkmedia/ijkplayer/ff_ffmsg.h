@@ -42,6 +42,7 @@
 #define FFP_MSG_VIDEO_SEEK_RENDERING_START  410
 #define FFP_MSG_AUDIO_SEEK_RENDERING_START  411
 #define FFP_MSG_VIDEO_SEI                   412     /* arg1 = width, obj = SEI */
+#define FFP_MSG_PCM_DATA                    413     /* obj = PCM data, obj_len = PCM size */
 
 #define FFP_MSG_BUFFERING_START             500
 #define FFP_MSG_BUFFERING_END               501

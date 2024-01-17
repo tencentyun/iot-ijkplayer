@@ -2838,6 +2838,10 @@ reload:
         resampled_data_size = data_size;
     }
 
+    
+    //将重采样的PCM数据在这里返回
+    ffp_notify_msg4(ffp, FFP_MSG_PCM_DATA, 0, resampled_data_size, is->audio_buf, resampled_data_size);
+    
     audio_clock0 = is->audio_clock;
     /* update the audio clock with the pts */
     if (!isnan(af->pts))
@@ -3153,7 +3157,8 @@ static int stream_component_open(FFPlayer *ffp, int stream_index)
 #endif
 
         /* prepare audio output */
-        if ((ret = audio_open(ffp, channel_layout, nb_channels, sample_rate, &is->audio_tgt)) < 0)
+//        if ((ret = audio_open(ffp, channel_layout, nb_channels, sample_rate, &is->audio_tgt)) < 0)
+        if ((ret = audio_open(ffp, AV_CH_LAYOUT_MONO, 1, 16000, &is->audio_tgt)) < 0)
             goto fail;
         ffp_set_audio_codec_info(ffp, AVCODEC_MODULE_NAME, avcodec_get_name(avctx->codec_id));
         is->audio_hw_buf_size = ret;
