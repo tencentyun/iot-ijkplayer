@@ -175,6 +175,7 @@ public interface IMediaPlayer {
     interface OnInfoListener {
         boolean onInfo(IMediaPlayer mp, int what, int extra);
         boolean onInfoSEI(IMediaPlayer mp, int what, int extra, String sei_content);
+        void onInfoAudioPcmData(IMediaPlayer mp, byte[] arrPcm, int length);
     }
 
     interface OnTimedTextListener {
