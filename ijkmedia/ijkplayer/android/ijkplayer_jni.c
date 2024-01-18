@@ -1035,7 +1035,7 @@ static void message_loop_n(JNIEnv *env, IjkMediaPlayer *mp)
             }
             break;
         case FFP_MSG_PCM_DATA:
-            MPTRACE("FFP_MSG_PCM_DATA:\n",);
+            MPTRACE("FFP_MSG_PCM_DATA:\n");
             if (msg.obj) {
                 // 创建一个 byte[] 数组   长度msg.arg2
                 jbyteArray byteArray = (*env)->NewByteArray(env, msg.arg2);
