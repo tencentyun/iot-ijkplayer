@@ -1219,6 +1219,7 @@ static void check_external_clock_speed(VideoState *is, FFPlayer *ffp) {
     }
 #endif
     
+#if 0
     static int temp_packet_num = 0;
     if ((temp_packet_num > 0) || (ffp->packet_max_num > 0)) {
         temp_packet_num = ffp->packet_max_num;
@@ -1252,7 +1253,50 @@ static void check_external_clock_speed(VideoState *is, FFPlayer *ffp) {
             set_clock_speed(&is->extclk, 1);
         }
     }
-//#endif
+#endif
+    if (is->video_stream > 0) {
+        if (is->videoq.nb_packets > EXTERNAL_CLOCK_MAX_FRAMES) { //if (is->videoq.nb_packets > temp_packet_num) {
+            
+            int synctype = get_master_sync_type(is);
+            if (synctype == AV_SYNC_AUDIO_MASTER) {
+                //            printf("speeddddddd===audio===packets===>%d\n",is->videoq.nb_packets);
+                if (ffp->audio_speed > 1) {
+                    ffp_set_playback_rate(ffp, ffp->audio_speed);
+                }else {
+                    ffp_set_playback_rate(ffp, EXTERNAL_CLOCK_SPEED_MAX);
+                }
+            }else {
+                //            printf("speeddddddd===exter===packets===>%d\n",is->videoq.nb_packets);
+                set_clock_speed(&is->extclk, EXTERNAL_CLOCK_SPEED_MAX);
+            }
+            
+        }else if (is->videoq.nb_packets < EXTERNAL_CLOCK_MIN_FRAMES) {
+            
+            ffp_set_playback_rate(ffp, 1);
+            double speed = is->extclk.speed;
+            if (speed != 1.0) {
+                set_clock_speed(&is->extclk, 1);
+            }
+        }
+    }
+    else {
+        //only audio stream
+        if (is->audio_stream >= 0) {
+            if (is->audioq.nb_packets > EXTERNAL_CLOCK_MAX_FRAMES) {
+                if (ffp->audio_speed > 1) {
+                    ffp_set_playback_rate(ffp, ffp->audio_speed);
+                }else {
+                    ffp_set_playback_rate(ffp, EXTERNAL_CLOCK_SPEED_MAX);
+                }
+            }else if (is->audioq.nb_packets < EXTERNAL_CLOCK_MIN_FRAMES){
+                ffp_set_playback_rate(ffp, 1);
+                double speed = is->extclk.speed;
+                if (speed != 1.0) {
+                    set_clock_speed(&is->extclk, 1);
+                }
+            }
+        }
+    }
 }
 
 /* seek in the stream */
