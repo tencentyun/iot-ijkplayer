@@ -3959,7 +3959,11 @@ static int read_thread(void *arg)
                 }
             }
         }
-
+        // 获取开始录制前dts等于pts最后的值，用于
+        if (!ffp->is_first && pkt->pts == pkt->dts) {
+            ffp->start_pts = pkt->pts;
+            ffp->start_dts = pkt->dts;
+        }
         if (ffp->is_record) { // 可以录制时，写入文件
 //            if (is->video_st && is->video_st->codecpar) {
 //                AVCodecParameters *in_codecpar = is->video_st->codecpar;
@@ -3967,11 +3971,7 @@ static int read_thread(void *arg)
 //
 //                }
 //            }
-        // 获取开始录制前dts等于pts最后的值，用于
-        if (!ffp->is_first && pkt->pts == pkt->dts) {
-                    ffp->start_pts = pkt->pts;
-                    ffp->start_dts = pkt->dts;
-                }
+            
             if (!ffp->real_record && (pkt->flags & AV_PKT_FLAG_KEY) && (pkt->stream_index == is->video_stream)) { //遇到关键帧打开开关,quicktime比较严格
                 MPTRACE("===== now III sample_rate =====\n");
                 ffp->real_record = true;
