@@ -5487,10 +5487,6 @@ uint32_t convert_hex_to_decimal(uint8_t *hex_data) {
 int parse_sei(AVPacket *pkt, uint8_t *uuid, uint8_t **content, int *size)
 {
 //    printf("\n SEI===LENT===%d \n",pkt->size);
-    MPTRACE("\n SEI===LENT===%d \n",pkt->size);
-    if (pkt->size < 6) {
-        return -1;
-    }
             
     uint8_t *p = pkt->data;
     uint8_t *p_end = p + pkt->size;
@@ -5510,6 +5506,9 @@ int parse_sei(AVPacket *pkt, uint8_t *uuid, uint8_t **content, int *size)
             
     uint32_t nalu_len = convert_hex_to_decimal(p);
 //    printf("\n SEI===nalu_len===%d \n",nalu_len);
+    if (nalu_len > INT32_MAX) {
+        return -1;
+    }
             
     while (p < p_end) {
         if (p[4] == 0x06 && p[5] == 0x05 && p + 2 < p_end) { // found SEI NAL;  payload_type = 5 表示 user_data_unregistered;
@@ -5568,6 +5567,9 @@ int parse_sei_hevc(AVPacket *pkt, uint8_t *uuid, uint8_t **content, int *size)
             
     uint32_t nalu_len = convert_hex_to_decimal(p);
 //    printf("\n SEI===nalu_len===%d \n",nalu_len);
+    if (nalu_len > INT32_MAX) {
+        return -1;
+    }
             
     while (p < p_end) {
         if (p[4] == 0x4E && p[5] == 0x01 && p[6] == 0x05 && p + 3 < p_end) { // found SEI NAL;  payload_type = 5 表示 user_data_unregistered;
