@@ -5506,7 +5506,7 @@ int parse_sei(AVPacket *pkt, uint8_t *uuid, uint8_t **content, int *size)
             
     uint32_t nalu_len = convert_hex_to_decimal(p);
 //    printf("\n SEI===nalu_len===%d \n",nalu_len);
-    if (nalu_len > INT32_MAX) {
+    if (nalu_len > pkt->size) {
         return -1;
     }
             
@@ -5567,7 +5567,7 @@ int parse_sei_hevc(AVPacket *pkt, uint8_t *uuid, uint8_t **content, int *size)
             
     uint32_t nalu_len = convert_hex_to_decimal(p);
 //    printf("\n SEI===nalu_len===%d \n",nalu_len);
-    if (nalu_len > INT32_MAX) {
+    if (nalu_len > pkt->size) {
         return -1;
     }
             
