@@ -5487,6 +5487,10 @@ uint32_t convert_hex_to_decimal(uint8_t *hex_data) {
 int parse_sei(AVPacket *pkt, uint8_t *uuid, uint8_t **content, int *size)
 {
 //    printf("\n SEI===LENT===%d \n",pkt->size);
+    MPTRACE("\n SEI===LENT===%d \n",pkt->size);
+    if (pkt->size < 6) {
+        return -1;
+    }
             
     uint8_t *p = pkt->data;
     uint8_t *p_end = p + pkt->size;
