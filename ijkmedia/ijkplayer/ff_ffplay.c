@@ -275,8 +275,8 @@ static void packet_queue_flush_videocache(PacketQueue *q)
 #ifdef FFP_MERGE
         av_freep(&pkt);
 #else
-        pkt->next = q->recycle_pkt;
-        q->recycle_pkt = pkt;
+//        pkt->next = q->recycle_pkt;
+//        q->recycle_pkt = pkt;
 #endif
     }
 //    q->last_pkt = NULL;
@@ -600,6 +600,9 @@ fail0:
 static int decoder_decode_frame(FFPlayer *ffp, Decoder *d, AVFrame *frame, AVSubtitle *sub) {
     int ret = AVERROR(EAGAIN);
 
+    // 这里没有 AV_FRAME_DATA_SEI，可能需要使用其他标识符
+//    AVFrameSideData *sei_data_frame = av_frame_get_side_data(frame, AV_FRAME_DATA_NEW_EXTRADATA);
+    
     for (;;) {
         AVPacket pkt;
 
@@ -3746,6 +3749,7 @@ static int read_thread(void *arg)
 //        }
 
         if (ic->iformat->name != NULL && strcmp(ic->iformat->name, "flv") == 0 && is->video_st && is->video_st->codecpar) {
+//            AVPacketSideData *sei_data = av_packet_get_side_data(pkt, AV_PKT_DATA_NEW_EXTRADATA, NULL);
             AVCodecParameters *in_codecpar = is->video_st->codecpar;
             //        if (in_codecpar->codec_type == AVMEDIA_TYPE_VIDEO && in_codecpar->codec_id == AV_CODEC_ID_H264) {
             if (pkt->stream_index == is->video_stream) {
