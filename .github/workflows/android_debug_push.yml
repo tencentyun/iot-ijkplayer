@@ -30,7 +30,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
             distribution: 'temurin' # See 'Supported distributions' for available options
-            java-version: '8'
+            java-version: '11'
       - run: java HelloWorldApp.java
       - name: Build with Gradle
         run: |
