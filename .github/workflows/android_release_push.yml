@@ -15,7 +15,7 @@ jobs:
   build:
     runs-on: macos-14
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
       - run: |
@@ -31,6 +31,11 @@ jobs:
           rc=$(git rev-parse --short HEAD)
           cd android/ijkplayer
           sed -i "" 's#def version.*#def version = \"'$rt'\"#g' config.gradle
+      - uses: actions/setup-java@v4
+        with:
+            distribution: 'temurin' # See 'Supported distributions' for available options
+            java-version: '8'
+      - run: java HelloWorldApp.java
       - name: Update Values of Signing
         run: |
           export KEY_ID_OF_SIGN=$IOT_GPG_KEYNAME

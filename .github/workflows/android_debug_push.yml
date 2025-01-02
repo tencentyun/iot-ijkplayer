@@ -18,7 +18,7 @@ jobs:
   build:
     runs-on: macos-14
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
       - name: Download r10e NDK
@@ -27,6 +27,11 @@ jobs:
           unzip android-ndk-r10e-darwin-x86_64.zip
       - name: Update SDK Version
         run: bash .github/script/updateVersionForSnapshot.sh
+      - uses: actions/setup-java@v4
+        with:
+            distribution: 'temurin' # See 'Supported distributions' for available options
+            java-version: '8'
+      - run: java HelloWorldApp.java
       - name: Build with Gradle
         run: |
           ls -l /Users/runner/work/iot-ijkplayer/iot-ijkplayer/android-ndk-r10e
