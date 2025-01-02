@@ -88,7 +88,7 @@ esac
 
 case "$UNAME_S" in
     Darwin)
-        export IJK_MAKE_FLAG=-j`sysctl -n machdep.cpu.thread_count`
+        export IJK_MAKE_FLAG=-j2 #`sysctl -n machdep.cpu.thread_count`
     ;;
     CYGWIN_NT-*)
         IJK_WIN_TEMP="$(cygpath -am /tmp)"
