@@ -4,7 +4,6 @@
 ./init-android.sh
 
 cd android/contrib
-./compile-openssl.sh clean
 ./compile-openssl.sh armv7a
 ./compile-openssl.sh arm64
 ./compile-ffmpeg.sh clean
