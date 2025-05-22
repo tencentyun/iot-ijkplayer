@@ -810,7 +810,6 @@ void ijkmp_get_current_frame(IjkMediaPlayer *mp, uint8_t *frame_buf)
     pthread_mutex_unlock(&mp->mutex);
 }
 
-
 int ijkmp_start_record(IjkMediaPlayer *mp, const char *file_name)
 {
     assert(mp);
