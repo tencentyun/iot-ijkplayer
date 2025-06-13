@@ -43,6 +43,16 @@ jobs:
           ./gradlew :ijkplayer-armv7a:assemble
           ./gradlew :ijkplayer-arm64:assemble
           ./gradlew :ijkplayer-java:assemble
+
+      - name: Upload AARs
+        uses: actions/upload-artifact@v4
+        with:
+          name: aars
+          path: |
+            ijkplayer-armv7a/build/outputs/aar/*.aar
+            ijkplayer-arm64/build/outputs/aar/*.aar
+            ijkplayer-java/build/outputs/aar/*.aar
+
       - name: Publish aar to Maven
         run: |
           cd android/ijkplayer
