@@ -275,6 +275,8 @@ typedef struct Decoder {
 } Decoder;
 
 typedef struct VideoState {
+    int switching_streams;          // 标记是否正在进行流切换
+    
     SDL_Thread *read_tid;
     SDL_Thread _read_tid;
     AVInputFormat *iformat;

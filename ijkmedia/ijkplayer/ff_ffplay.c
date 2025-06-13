@@ -3659,6 +3659,21 @@ static int read_thread(void *arg)
             }
         }
 
+
+        // 如果正在切换流，检查是否是关键帧
+        if (is->switching_streams) {
+            if (pkt->stream_index == is->video_stream) {  // 确保是视频流
+                if (pkt->flags & AV_PKT_FLAG_KEY) {
+                    // 是关键帧，重置切换状态
+                    is->switching_streams = 0;
+                    // 继续正常处理流程
+                } else {
+                    // 不是关键帧，丢弃
+                    av_packet_unref(pkt);
+                    continue;  // 或继续读取下一帧
+                }
+            }
+        }
         //parse SEI message
 //        if (ic->iformat->name != NULL && strcmp(ic->iformat->name, "flv") == 0) {
 //            printf("\nThe stream is FLV format,%s\n",ic->iformat->name);
@@ -3790,6 +3805,8 @@ static VideoState *stream_open(FFPlayer *ffp, const char *filename, AVInputForma
     is->iformat = iformat;
     is->ytop    = 0;
     is->xleft   = 0;
+// 初始化新增的成员变量
+    is->switching_streams = 0;
 #if defined(__ANDROID__)
     if (ffp->soundtouch_enable) {
         is->handle = ijk_soundtouch_create();
@@ -5389,19 +5406,27 @@ void ffp_set_player_maxpacket(FFPlayer *ffp, int num) {
 }
 
 void ffp_flush_player_cache(FFPlayer *ffp) {
-            
-            VideoState *is = ffp->is;
-            if (is->audio_stream >= 0) {
-                packet_queue_flush(&is->audioq);
-                packet_queue_put(&is->audioq, &flush_pkt);
-                // TODO: clear invaild audio data
-                // SDL_AoutFlushAudio(ffp->aout);
-            }
-            
-            if (is->video_stream >= 0) {
-                packet_queue_flush_videocache(&is->videoq);
-                packet_queue_put(&is->videoq, &flush_pkt);
-            }
+    VideoState *is = ffp->is;
+
+    // 设置切换标志，用于控制平滑切换
+    is->switching_streams = 1;
+
+    // 清理音频，保持音频连续性
+    if (is->audio_stream >= 0) {
+        packet_queue_flush(&is->audioq);
+        packet_queue_put(&is->audioq, &flush_pkt);
+    }
+
+    // 清理视频，但保持当前帧显示
+    if (is->video_stream >= 0) {
+        // 保留最后一帧，清空其他帧
+        packet_queue_flush(&is->videoq);
+        packet_queue_put(&is->videoq, &flush_pkt);
+
+        // 不重置显示时间戳，保持当前帧显示
+        // 新的时间戳将在收到新的关键帧时更新
+        is->frame_timer = av_gettime_relative() / 1000000.0;
+    }
 }
 
 void ffp_set_mediacodec_flags(FFPlayer *ffp, int flags) {
