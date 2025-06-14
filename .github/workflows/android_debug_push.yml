@@ -49,9 +49,9 @@ jobs:
         with:
           name: aars
           path: |
-            ijkplayer-armv7a/build/outputs/aar/*.aar
-            ijkplayer-arm64/build/outputs/aar/*.aar
-            ijkplayer-java/build/outputs/aar/*.aar
+            ijkplayer-armv7a/build/outputs/aar/ijkplayer-armv7a-release.aar
+            ijkplayer-arm64/build/outputs/aar/ijkplayer-arm64-release.aar
+            ijkplayer-java/build/outputs/aar/ijkplayer-java-release.aar
 
       - name: Publish aar to Maven
         run: |
