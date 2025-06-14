@@ -10,6 +10,9 @@ cd android/contrib
 cd ..
 ./compile-ijk.sh armv7a
 
+./init-android-openssl.sh
+./init-android.sh
+
 cd android/contrib
 ./compile-openssl.sh arm64
 ./compile-ffmpeg.sh clean
