@@ -49,9 +49,9 @@ jobs:
         with:
           name: aars
           path: |
-            /Users/runner/work/iot-ijkplayer/iot-ijkplayer/android/ijkplayer/ijkplayer-armv7a/build/outputs/aar/ijkplayer-armv7a-release.aar
-            /Users/runner/work/iot-ijkplayer/iot-ijkplayer/android/ijkplayer/ijkplayer-arm64/build/outputs/aar/ijkplayer-arm64-release.aar
-            /Users/runner/work/iot-ijkplayer/iot-ijkplayer/android/ijkplayer/ijkplayer-java/build/outputs/aar/ijkplayer-java-release.aar
+            /Users/runner/work/iot-ijkplayer/iot-ijkplayer/android/ijkplayer/ijkplayer-armv7a/build/outputs/aar/ijkplayer-armv7a-debug.aar
+            /Users/runner/work/iot-ijkplayer/iot-ijkplayer/android/ijkplayer/ijkplayer-arm64/build/outputs/aar/ijkplayer-arm64-debug.aar
+            /Users/runner/work/iot-ijkplayer/iot-ijkplayer/android/ijkplayer/ijkplayer-java/build/outputs/aar/ijkplayer-java-debug.aar
 
       - name: Publish aar to Maven
         run: |
