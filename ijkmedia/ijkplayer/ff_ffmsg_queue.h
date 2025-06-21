@@ -156,9 +156,25 @@ inline static void msg_queue_put_simple4(MessageQueue *q, int what, int arg1, in
     msg.what = what;
     msg.arg1 = arg1;
     msg.arg2 = arg2;
+
+    // 分配内存并检查是否成功
     msg.obj = av_malloc(obj_len);
+    if (!msg.obj) {
+        av_log(NULL, AV_LOG_ERROR, "msg_queue_put_simple4: 内存分配失败 size=%d\n", obj_len);
+        return;
+    }
+
+    // 安全拷贝数据
     memcpy(msg.obj, obj, obj_len);
     msg.free_l = msg_obj_free_l;
+
+    // 放入队列
+    if (msg_queue_put(q, &msg) < 0) {
+        // 如果放入队列失败，释放已分配的内存
+        msg_obj_free_l(msg.obj);
+        av_log(NULL, AV_LOG_WARNING, "msg_queue_put_simple4: 放入消息队列失败\n");
+    }
+
     msg_queue_put(q, &msg);
 }
 
