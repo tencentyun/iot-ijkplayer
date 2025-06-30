@@ -68,6 +68,7 @@ publishing {
             artifact(androidJavadocsJar)
             artifact file('build/outputs/aar/ijkplayer-arm64-release.aar')
 
+
             pom {
                 name = 'ijkplayer'
                 description = 'Tencent Link Android library'
