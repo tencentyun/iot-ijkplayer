@@ -30,7 +30,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
             distribution: 'temurin' # See 'Supported distributions' for available options
-            java-version: '11'
+            java-version: '17'
       - name: Build with Gradle
         run: |
           ls -l /Users/runner/work/iot-ijkplayer/iot-ijkplayer/android-ndk-r10e
