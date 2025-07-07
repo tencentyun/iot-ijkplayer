@@ -174,8 +174,6 @@ inline static void msg_queue_put_simple4(MessageQueue *q, int what, int arg1, in
         msg_obj_free_l(msg.obj);
         av_log(NULL, AV_LOG_WARNING, "msg_queue_put_simple4: 放入消息队列失败\n");
     }
-
-    msg_queue_put(q, &msg);
 }
 
 inline static void msg_queue_init(MessageQueue *q)
