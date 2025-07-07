@@ -56,6 +56,6 @@ jobs:
       - name: Publish aar to Maven
         run: |
           cd android/ijkplayer
-          ./gradlew :ijkplayer-armv7a:publish
-          ./gradlew :ijkplayer-arm64:publish
-          ./gradlew :ijkplayer-java:publish
+          ./gradlew :ijkplayer-armv7a:publishToMavenCentral
+          ./gradlew :ijkplayer-arm64:publishToMavenCentral
+          ./gradlew :ijkplayer-java:publishToMavenCentral
