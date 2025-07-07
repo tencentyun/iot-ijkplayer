@@ -1,6 +1,7 @@
 apply plugin: 'com.android.library'
 
 android {
+    namespace "tv.danmaku.ijk.media.exo"
     // http://tools.android.com/tech-docs/new-build-system/tips
     //noinspection GroovyAssignabilityCheck
     compileSdkVersion rootProject.ext.compileSdkVersion
@@ -23,11 +24,11 @@ android {
 }
 
 dependencies {
-    compile fileTree(dir: 'libs', include: ['*.jar'])
+    implementation fileTree(dir: 'libs', include: ['*.jar'])
 
-    compile 'com.google.android.exoplayer:exoplayer:r1.5.11'
+    implementation 'com.google.android.exoplayer:exoplayer:2.19.1'
 
-    compile project(':ijkplayer-java')
+    implementation project(':ijkplayer-java')
     // compile 'tv.danmaku.ijk.media:ijkplayer-java:0.8.8'
 }
 
