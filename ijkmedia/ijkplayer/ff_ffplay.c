@@ -5239,7 +5239,11 @@ int ffp_start_record(FFPlayer *ffp, const char *file_name)
                 goto end;
             }
             // 初始化一个用于输出的AVFormatContext结构体
-            avformat_alloc_output_context2(&ffp->m_ofmt_ctx, NULL, "mov", file_name);
+            #if defined(__ANDROID__)
+                avformat_alloc_output_context2(&ffp->m_ofmt_ctx, NULL, "mp4", file_name);
+            #else
+                avformat_alloc_output_context2(&ffp->m_ofmt_ctx, NULL, "mov", file_name);
+            #endif
             if (!ffp->m_ofmt_ctx) {
                 av_log(ffp, AV_LOG_ERROR, "===Could not create output context filename is %s\n", file_name);
                 goto end;
