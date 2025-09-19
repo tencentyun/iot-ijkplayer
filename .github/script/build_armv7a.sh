@@ -2,6 +2,7 @@
 
 ./init-android-openssl.sh
 ./init-android.sh
+./compile-ijk.sh clean
 
 cd android/contrib
 ./compile-openssl.sh armv7a
