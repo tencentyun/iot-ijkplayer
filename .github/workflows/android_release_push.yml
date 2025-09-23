@@ -34,7 +34,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
             distribution: 'temurin' # See 'Supported distributions' for available options
-            java-version: '11'
+            java-version: '17'
       - name: Update Values of Signing
         run: |
           export KEY_ID_OF_SIGN=$IOT_GPG_KEYNAME

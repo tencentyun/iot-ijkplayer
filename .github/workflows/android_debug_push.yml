@@ -13,6 +13,8 @@ env:
   IOT_SONATYPE_USERNAME: ${{ secrets.IOT_SONATYPE_USERNAME }}
   IOT_SONATYPE_PASSWORD: ${{ secrets.IOT_SONATYPE_PASSWORD }}
   GPG_DECRYPT_PASSPHRASE: ${{ secrets.GPG_DECRYPT_PASSPHRASE }}
+  IOT_GPG_KEYNAME: ${{ secrets.IOT_GPG_KEYNAME }}
+  IOT_GPG_PASSPHRASE: ${{ secrets.IOT_GPG_PASSPHRASE }}
 
 jobs:
   build:
@@ -31,6 +33,11 @@ jobs:
         with:
             distribution: 'temurin' # See 'Supported distributions' for available options
             java-version: '17'
+      - name: Update Values of Signing
+        run: |
+            export KEY_ID_OF_SIGN=$IOT_GPG_KEYNAME
+            export PASSWORD_OF_SIGN=$IOT_GPG_PASSPHRASE
+            sh .github/script/updateValuesForSign.sh
       - name: Build with Gradle
         run: |
           ls -l /Users/runner/work/iot-ijkplayer/iot-ijkplayer/android-ndk-r10e
@@ -43,11 +50,13 @@ jobs:
           ./gradlew :ijkplayer-arm64:assemble
           ./gradlew :ijkplayer-java:assemble
 
-      - name: Upload AARs
+      - name: Upload AARs and so
         uses: actions/upload-artifact@v4
         with:
           name: aars
           path: |
+            /Users/runner/work/iot-ijkplayer/iot-ijkplayer/android/ijkplayer/ijkplayer-armv7a/src/main/obj/local
+            /Users/runner/work/iot-ijkplayer/iot-ijkplayer/android/ijkplayer/ijkplayer-arm64/src/main/obj/local
             /Users/runner/work/iot-ijkplayer/iot-ijkplayer/android/ijkplayer/ijkplayer-armv7a/build/outputs/aar/ijkplayer-armv7a-debug.aar
             /Users/runner/work/iot-ijkplayer/iot-ijkplayer/android/ijkplayer/ijkplayer-arm64/build/outputs/aar/ijkplayer-arm64-debug.aar
             /Users/runner/work/iot-ijkplayer/iot-ijkplayer/android/ijkplayer/ijkplayer-java/build/outputs/aar/ijkplayer-java-debug.aar
