@@ -41,7 +41,8 @@ jobs:
         run: |
             export KEY_ID_OF_SIGN=$IOT_GPG_KEYNAME
             export PASSWORD_OF_SIGN=$IOT_GPG_PASSPHRASE
-            sh .github/script/updateValuesForSign.sh
+            sh .github/script/updateValuesForSign.sh iot-ijkplayer/android/ijkplayer/gradle.properties
+
       - name: Build with Gradle
         run: |
           ls -l /Users/runner/work/iot-ijkplayer/iot-ijkplayer/android-ndk-r10e
