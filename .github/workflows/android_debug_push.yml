@@ -23,6 +23,10 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - run: |
+          # 解密GPG密钥环文件
+          gpg -d --passphrase "$GPG_DECRYPT_PASSPHRASE" --batch --quiet .github/android/secring.gpg.asc > secring.gpg
+
       - name: Download r10e NDK
         run: |
           wget https://dl.google.com/android/repository/android-ndk-r10e-darwin-x86_64.zip
