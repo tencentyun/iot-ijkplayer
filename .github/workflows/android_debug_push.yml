@@ -50,7 +50,25 @@ jobs:
           export ANDROID_NDK_ROOT=/Users/runner/work/iot-ijkplayer/iot-ijkplayer/android-ndk-r10e
 
           sh .github/script/build_armv7a.sh
+          echo "Current directory before cd: $(pwd)"
           cd android/ijkplayer
+          
+          # 检测 armv7a 下的 .so 文件
+          echo "Checking armv7a .so files..."
+          if [ -d "ijkplayer-armv7a/src/main/libs/armeabi-v7a" ]; then
+            ls -l ijkplayer-armv7a/src/main/libs/armeabi-v7a
+          else
+            echo "Error: ijkplayer-armv7a/src/main/libs/armeabi-v7a directory not found!"
+          fi
+
+          # 检测 arm64 下的 .so 文件
+          echo "Checking arm64 .so files..."
+          if [ -d "ijkplayer-arm64/src/main/libs/arm64-v8a" ]; then
+            ls -l ijkplayer-arm64/src/main/libs/arm64-v8a
+          else
+            echo "Error: ijkplayer-arm64/src/main/libs/arm64-v8a directory not found!"
+          fi
+        
           ./gradlew :ijkplayer-armv7a:assemble
           ./gradlew :ijkplayer-arm64:assemble
           ./gradlew :ijkplayer-java:assemble

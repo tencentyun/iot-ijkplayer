@@ -36,19 +36,6 @@ dependencies {
 
 apply from: new File(rootProject.projectDir, "tools/gradle-on-demand.gradle");
 
-
-task androidJavadocs(type: Javadoc) {
-    failOnError false
-    source = android.sourceSets.main.java.srcDirs
-    classpath += project.files(android.getBootClasspath().join(File.pathSeparator))
-    android.libraryVariants.all { variant ->
-        if (variant.name == 'release') {
-            owner.classpath += variant.javaCompile.classpath
-        }
-    }
-    exclude '**/R.html', '**/R.*.html', '**/index.html'
-}
-
 def libVersion = rootProject.ext.sdk.version
 ext.isReleaseVersion = !libVersion.endsWith("SNAPSHOT")
 mavenPublishing {
