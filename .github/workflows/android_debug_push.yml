@@ -13,6 +13,8 @@ env:
   IOT_SONATYPE_USERNAME: ${{ secrets.IOT_SONATYPE_USERNAME }}
   IOT_SONATYPE_PASSWORD: ${{ secrets.IOT_SONATYPE_PASSWORD }}
   GPG_DECRYPT_PASSPHRASE: ${{ secrets.GPG_DECRYPT_PASSPHRASE }}
+  IOT_GPG_KEYNAME: ${{ secrets.IOT_GPG_KEYNAME }}
+  IOT_GPG_PASSPHRASE: ${{ secrets.IOT_GPG_PASSPHRASE }}
 
 jobs:
   build:
@@ -21,6 +23,10 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - run: |
+          # 解密GPG密钥环文件
+          gpg -d --passphrase "$GPG_DECRYPT_PASSPHRASE" --batch --quiet .github/android/secring.gpg.asc > secring.gpg
+
       - name: Download r10e NDK
         run: |
           wget https://dl.google.com/android/repository/android-ndk-r10e-darwin-x86_64.zip
@@ -31,31 +37,60 @@ jobs:
         with:
             distribution: 'temurin' # See 'Supported distributions' for available options
             java-version: '17'
+      - name: Update Values of Signing
+        run: |
+            export KEY_ID_OF_SIGN=$IOT_GPG_KEYNAME
+            export PASSWORD_OF_SIGN=$IOT_GPG_PASSPHRASE
+            sh .github/script/updateValuesForSign.sh android/ijkplayer/gradle.properties
+
       - name: Build with Gradle
         run: |
           ls -l /Users/runner/work/iot-ijkplayer/iot-ijkplayer/android-ndk-r10e
-          perl -i -pe "s#.*HOST_ARCH=x86_64.*#\t\tx86_64|amd64|arm64) HOST_ARCH=x86_64;;#g" /Users/runner/work/iot-ijkplayer/iot-ijkplayer/android-ndk-r10e/ndk-build
           export ANDROID_NDK=/Users/runner/work/iot-ijkplayer/iot-ijkplayer/android-ndk-r10e
           export ANDROID_NDK_ROOT=/Users/runner/work/iot-ijkplayer/iot-ijkplayer/android-ndk-r10e
 
           sh .github/script/build_armv7a.sh
+          echo "Current directory before cd: $(pwd)"
           cd android/ijkplayer
+          
+          # 检测 armv7a 下的 .so 文件
+          echo "Checking armv7a .so files..."
+          if [ -d "ijkplayer-armv7a/src/main/libs/armeabi-v7a" ]; then
+            ls -l ijkplayer-armv7a/src/main/libs/armeabi-v7a
+          else
+            echo "Error: ijkplayer-armv7a/src/main/libs/armeabi-v7a directory not found!"
+          fi
+
+          # 检测 arm64 下的 .so 文件
+          echo "Checking arm64 .so files..."
+          if [ -d "ijkplayer-arm64/src/main/libs/arm64-v8a" ]; then
+            ls -l ijkplayer-arm64/src/main/libs/arm64-v8a
+          else
+            echo "Error: ijkplayer-arm64/src/main/libs/arm64-v8a directory not found!"
+          fi
+        
           ./gradlew :ijkplayer-armv7a:assemble
           ./gradlew :ijkplayer-arm64:assemble
           ./gradlew :ijkplayer-java:assemble
 
-      - name: Upload AARs
+      - name: Upload AARs and so
         uses: actions/upload-artifact@v4
         with:
           name: aars
           path: |
+            /Users/runner/work/iot-ijkplayer/iot-ijkplayer/android/ijkplayer/ijkplayer-armv7a/src/main/obj/local
+            /Users/runner/work/iot-ijkplayer/iot-ijkplayer/android/ijkplayer/ijkplayer-arm64/src/main/obj/local
             /Users/runner/work/iot-ijkplayer/iot-ijkplayer/android/ijkplayer/ijkplayer-armv7a/build/outputs/aar/ijkplayer-armv7a-debug.aar
             /Users/runner/work/iot-ijkplayer/iot-ijkplayer/android/ijkplayer/ijkplayer-arm64/build/outputs/aar/ijkplayer-arm64-debug.aar
             /Users/runner/work/iot-ijkplayer/iot-ijkplayer/android/ijkplayer/ijkplayer-java/build/outputs/aar/ijkplayer-java-debug.aar
 
       - name: Publish aar to Maven
         run: |
+          pwd
+          ls -l
           cd android/ijkplayer
-          ./gradlew :ijkplayer-armv7a:publishToMavenCentral
-          ./gradlew :ijkplayer-arm64:publishToMavenCentral
-          ./gradlew :ijkplayer-java:publishToMavenCentral
+          pwd
+          ls -l
+          ./gradlew :ijkplayer-armv7a:publish
+          ./gradlew :ijkplayer-arm64:publish
+          ./gradlew :ijkplayer-java:publish
