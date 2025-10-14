@@ -177,13 +177,6 @@ inline static void msg_queue_put_simple4(MessageQueue *q, int what, int arg1, in
 
     av_log(NULL, AV_LOG_INFO, "%s", log_msg);
 
-    // 打印内存状态
-    av_log(NULL, AV_LOG_INFO, "内存状态: ");
-    for (int i = 0; i < obj_len; ++i) {
-        fprintf(stderr, "%02x ", ((unsigned char *) obj)[i]);
-    }
-    fprintf(stderr, "\n");
-
     // 安全拷贝数据
     memcpy(msg.obj, obj, obj_len);
     msg.free_l = msg_obj_free_l;
