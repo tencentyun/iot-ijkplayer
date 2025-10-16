@@ -168,14 +168,6 @@ inline static void msg_queue_put_simple4(MessageQueue *q, int what, int arg1, in
         av_log(NULL, AV_LOG_ERROR, "msg_queue_put_simple4: 内存分配失败 size=%d\n", obj_len);
         return;
     }
-    // 将信息合并到一条日志中
-    char log_msg[1024] = {0};
-    snprintf(log_msg, sizeof(log_msg),
-             "msg_queue_put_simple4: 准备进行内存拷贝\n"
-             "msg.obj: %p, obj: %p, obj_len: %d\n",
-             msg.obj, obj, obj_len);
-
-    av_log(NULL, AV_LOG_INFO, "%s", log_msg);
 
     // 安全拷贝数据
     memcpy(msg.obj, obj, obj_len);
