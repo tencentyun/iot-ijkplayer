@@ -156,6 +156,12 @@ inline static void msg_queue_put_simple4(MessageQueue *q, int what, int arg1, in
         return;
     }
 
+    if (obj_len > 2688) {
+        av_log(NULL, AV_LOG_ERROR, "msg_queue_put_simple4: 过大的参数 - obj: %p, obj_len: %d\n",
+               obj, obj_len);
+        return;
+    }
+
     AVMessage msg;
     msg_init_msg(&msg);
     msg.what = what;
