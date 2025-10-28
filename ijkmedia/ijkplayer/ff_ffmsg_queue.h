@@ -151,49 +151,15 @@ inline static void msg_obj_free_l(void *obj)
 
 inline static void msg_queue_put_simple4(MessageQueue *q, int what, int arg1, int arg2, void *obj, int obj_len)
 {
-    if (!obj || obj_len <= 0) {
-        av_log(NULL, AV_LOG_ERROR, "msg_queue_put_simple4: 无效的参数 - obj: %p, obj_len: %d\n", obj, obj_len);
-        return;
-    }
-
     AVMessage msg;
     msg_init_msg(&msg);
     msg.what = what;
     msg.arg1 = arg1;
     msg.arg2 = arg2;
-
-    // 分配内存并检查是否成功
     msg.obj = av_malloc(obj_len);
-    if (!msg.obj) {
-        av_log(NULL, AV_LOG_ERROR, "msg_queue_put_simple4: 内存分配失败 size=%d\n", obj_len);
-        return;
-    }
-    // 将信息合并到一条日志中
-    char log_msg[1024] = {0};
-    snprintf(log_msg, sizeof(log_msg),
-             "msg_queue_put_simple4: 准备进行内存拷贝\n"
-             "msg.obj: %p, obj: %p, obj_len: %d\n",
-             msg.obj, obj, obj_len);
-
-    av_log(NULL, AV_LOG_INFO, "%s", log_msg);
-
-    // 打印内存状态
-    av_log(NULL, AV_LOG_INFO, "内存状态: ");
-    for (int i = 0; i < obj_len; ++i) {
-        fprintf(stderr, "%02x ", ((unsigned char *) obj)[i]);
-    }
-    fprintf(stderr, "\n");
-
-    // 安全拷贝数据
     memcpy(msg.obj, obj, obj_len);
     msg.free_l = msg_obj_free_l;
-
-    // 放入队列
-    if (msg_queue_put(q, &msg) < 0) {
-        // 如果放入队列失败，释放已分配的内存
-        msg_obj_free_l(msg.obj);
-        av_log(NULL, AV_LOG_WARNING, "msg_queue_put_simple4: 放入消息队列失败\n");
-    }
+    msg_queue_put(q, &msg);
 }
 
 inline static void msg_queue_init(MessageQueue *q)
