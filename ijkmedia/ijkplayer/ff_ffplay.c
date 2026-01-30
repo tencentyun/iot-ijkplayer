@@ -5420,25 +5420,77 @@ void ffp_set_player_maxpacket(FFPlayer *ffp, int num) {
 void ffp_flush_player_cache(FFPlayer *ffp) {
     VideoState *is = ffp->is;
 
-    // 设置切换标志，用于控制平滑切换
+    // 设置切换标志，用于控制平滑切换（等待关键帧）
     is->switching_streams = 1;
 
-    // 清理音频，保持音频连续性
+    // 清理音频缓存
     if (is->audio_stream >= 0) {
+        // 1. 刷新音频packet队列
         packet_queue_flush(&is->audioq);
         packet_queue_put(&is->audioq, &flush_pkt);
+        
+        // 2. 清空音频帧队列（已解码但未播放的音频帧）
+        SDL_LockMutex(is->sampq.mutex);
+        while (is->sampq.size > 0) {
+            frame_queue_unref_item(&is->sampq.queue[is->sampq.rindex]);
+            if (++is->sampq.rindex == is->sampq.max_size)
+                is->sampq.rindex = 0;
+            is->sampq.size--;
+        }
+        is->sampq.rindex_shown = 0;
+        SDL_CondSignal(is->sampq.cond);
+        SDL_UnlockMutex(is->sampq.mutex);
+        
+        // 3. 重置音频时钟（关键：避免时间戳不同步）
+        set_clock(&is->audclk, NAN, -1);
     }
 
-    // 清理视频，但保持当前帧显示
+    // 清理视频缓存
     if (is->video_stream >= 0) {
-        // 保留最后一帧，清空其他帧
+        // 1. 刷新视频packet队列
         packet_queue_flush(&is->videoq);
         packet_queue_put(&is->videoq, &flush_pkt);
+        
+        // 2. 清空视频帧队列（已解码但未显示的视频帧）
+        SDL_LockMutex(is->pictq.mutex);
+        while (is->pictq.size > 0) {
+            frame_queue_unref_item(&is->pictq.queue[is->pictq.rindex]);
+            if (++is->pictq.rindex == is->pictq.max_size)
+                is->pictq.rindex = 0;
+            is->pictq.size--;
+        }
+        is->pictq.rindex_shown = 0;
+        SDL_CondSignal(is->pictq.cond);
+        SDL_UnlockMutex(is->pictq.mutex);
 
-        // 不重置显示时间戳，保持当前帧显示
-        // 新的时间戳将在收到新的关键帧时更新
+        // 3. 重置视频时钟（关键：避免时间戳不同步）
+        set_clock(&is->vidclk, NAN, -1);
+        
+        // 4. 重置显示时间戳，准备接收新数据
         is->frame_timer = av_gettime_relative() / 1000000.0;
     }
+
+    // 清理字幕缓存
+    if (is->subtitle_stream >= 0) {
+        packet_queue_flush(&is->subtitleq);
+        packet_queue_put(&is->subtitleq, &flush_pkt);
+        
+        SDL_LockMutex(is->subpq.mutex);
+        while (is->subpq.size > 0) {
+            frame_queue_unref_item(&is->subpq.queue[is->subpq.rindex]);
+            if (++is->subpq.rindex == is->subpq.max_size)
+                is->subpq.rindex = 0;
+            is->subpq.size--;
+        }
+        is->subpq.rindex_shown = 0;
+        SDL_CondSignal(is->subpq.cond);
+        SDL_UnlockMutex(is->subpq.mutex);
+    }
+    
+    // 5. 重置外部时钟（关键：避免时间戳不同步）
+    set_clock(&is->extclk, NAN, -1);
+    
+    av_log(NULL, AV_LOG_INFO, "ffp_flush_player_cache: all caches and clocks reset, waiting for keyframe\n");
 }
 
 void ffp_set_mediacodec_flags(FFPlayer *ffp, int flags) {

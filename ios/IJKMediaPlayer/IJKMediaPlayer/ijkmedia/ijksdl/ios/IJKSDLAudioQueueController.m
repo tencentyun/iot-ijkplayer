@@ -89,8 +89,9 @@
 
         UInt32 propValue = 1;
         AudioQueueSetProperty(audioQueueRef, kAudioQueueProperty_EnableTimePitch, &propValue, sizeof(propValue));
-        propValue = 1;
-        AudioQueueSetProperty(_audioQueueRef, kAudioQueueProperty_TimePitchBypass, &propValue, sizeof(propValue));
+        // 注释掉TimePitchBypass设置，让音调校正功能正常工作，避免倍速播放时音调变高
+        // propValue = 1;
+        // AudioQueueSetProperty(_audioQueueRef, kAudioQueueProperty_TimePitchBypass, &propValue, sizeof(propValue));
         propValue = kAudioQueueTimePitchAlgorithm_Spectral;
         AudioQueueSetProperty(_audioQueueRef, kAudioQueueProperty_TimePitchAlgorithm, &propValue, sizeof(propValue));
 
@@ -215,15 +216,10 @@
 
 - (void)setPlaybackRate:(float)playbackRate
 {
-    if (fabsf(playbackRate - 1.0f) <= 0.000001) {
-        UInt32 propValue = 1;
-        AudioQueueSetProperty(_audioQueueRef, kAudioQueueProperty_TimePitchBypass, &propValue, sizeof(propValue));
-        AudioQueueSetParameter(_audioQueueRef, kAudioQueueParam_PlayRate, 1.0f);
-    } else {
-        UInt32 propValue = 0;
-        AudioQueueSetProperty(_audioQueueRef, kAudioQueueProperty_TimePitchBypass, &propValue, sizeof(propValue));
-        AudioQueueSetParameter(_audioQueueRef, kAudioQueueParam_PlayRate, playbackRate);
-    }
+    // 始终启用音调校正，确保任何速度下音调都保持不变
+    UInt32 propValue = 0;
+    AudioQueueSetProperty(_audioQueueRef, kAudioQueueProperty_TimePitchBypass, &propValue, sizeof(propValue));
+    AudioQueueSetParameter(_audioQueueRef, kAudioQueueParam_PlayRate, playbackRate);
 }
 
 - (void)setPlaybackVolume:(float)playbackVolume
