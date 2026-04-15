@@ -308,7 +308,11 @@ void ijkmp_shutdown_l(IjkMediaPlayer *mp)
 
 void ijkmp_shutdown(IjkMediaPlayer *mp)
 {
-    return ijkmp_shutdown_l(mp);
+    assert(mp);
+
+    pthread_mutex_lock(&mp->mutex);
+    ijkmp_shutdown_l(mp);
+    pthread_mutex_unlock(&mp->mutex);
 }
 
 void ijkmp_inc_ref(IjkMediaPlayer *mp)

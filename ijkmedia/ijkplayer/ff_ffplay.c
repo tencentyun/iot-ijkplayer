@@ -5418,7 +5418,13 @@ void ffp_set_player_maxpacket(FFPlayer *ffp, int num) {
 }
 
 void ffp_flush_player_cache(FFPlayer *ffp) {
+    assert(ffp);
+
     VideoState *is = ffp->is;
+    if (!is) {
+        av_log(ffp, AV_LOG_WARNING, "ffp_flush_player_cache: ignore because stream is not prepared or already stopped\n");
+        return;
+    }
 
     // 设置切换标志，用于控制平滑切换（等待关键帧）
     is->switching_streams = 1;
