@@ -3712,6 +3712,8 @@ static int read_thread(void *arg)
                      }
                      printf("\n SEI===SIZE===%d \n",size);*/
                     ffp_notify_msg4(ffp, FFP_MSG_VIDEO_SEI, 0, 0, content, size);
+                    free(content);
+                    content = NULL;
                 }
             }
         }
@@ -5513,60 +5515,114 @@ uint32_t convert_hex_to_decimal(uint8_t *hex_data) {
 
 int parse_sei(AVPacket *pkt, uint8_t *uuid, uint8_t **content, int *size)
 {
-//    printf("\n SEI===LENT===%d \n",pkt->size);
-            
     uint8_t *p = pkt->data;
     uint8_t *p_end = p + pkt->size;
     *content = NULL;
     *size = 0;
-    
-    /* 打印 nalu
-    uint8_t *SEI_p = pkt->data;
-    uint8_t *SEI_p_end = SEI_p + pkt->size;
-    if (SEI_p[4] == 0x06 && SEI_p[5] == 0x05) {
-        while (SEI_p < SEI_p_end) {
-            printf("%02x ",*SEI_p);
-            SEI_p++;
+
+    // Detect NALU length field format: Annex B (start code) or AVCC (4-byte length prefix)
+    // Annex B starts with 00 00 00 01 or 00 00 01
+    // AVCC starts with a 4-byte big-endian length
+    int is_annexb = 0;
+    if (pkt->size >= 4 && p[0] == 0x00 && p[1] == 0x00 &&
+        ((p[2] == 0x00 && p[3] == 0x01) || (p[2] == 0x01))) {
+        is_annexb = 1;
+    }
+
+    uint32_t nalu_len;
+    if (is_annexb) {
+        // Annex B format: find NALU boundary by searching for the next start code
+        nalu_len = pkt->size; // fallback: treat entire packet as one NALU
+    } else {
+        // AVCC format: 4-byte big-endian length prefix
+        nalu_len = convert_hex_to_decimal(p);
+        if (nalu_len > pkt->size) {
+            return -1;
         }
     }
-    //*/
-            
-    uint32_t nalu_len = convert_hex_to_decimal(p);
-//    printf("\n SEI===nalu_len===%d \n",nalu_len);
-    if (nalu_len > pkt->size) {
-        return -1;
-    }
-            
-    while (p < p_end) {
-        if (p[4] == 0x06 && p[5] == 0x05 && p + 2 < p_end) { // found SEI NAL;  payload_type = 5 表示 user_data_unregistered;
-            
+
+    while (p + 6 < p_end) { // ensure p[4], p[5] are accessible
+        uint8_t *nalu_start;
+        if (is_annexb) {
+            // Skip start code (00 00 00 01 or 00 00 01) to reach NALU header
+            nalu_start = p;
+            if (p[0] == 0x00 && p[1] == 0x00 && p[2] == 0x00 && p[3] == 0x01) {
+                p += 4; // skip 4-byte start code
+            } else if (p[0] == 0x00 && p[1] == 0x00 && p[2] == 0x01) {
+                p += 3; // skip 3-byte start code
+            } else {
+                // Not a valid start code, skip this data
+                break;
+            }
+        } else {
+            nalu_start = p;
+            p += 4; // skip 4-byte length field
+        }
+
+        // Check if this is an H.264 SEI NALU (NALU type 0x06 in header byte)
+        // After skipping start code/length, p points to the NALU header byte
+        if (p[0] == 0x06 && p[1] == 0x05) { // nal_unit_type=6(SEI), payload_type=5(user_data_unregistered)
             int payload_size = 0;
-            
-            p += 6;//跳过len 和 06 05 解析payloadsize  （annexB nalu跳过前4个字节）
-            while( p[0] == 0xFF){
+            p += 2; // skip NALU header(1 byte) + payload_type(1 byte)
+
+            // Parse payload_size (variable-length encoding: 0xFF = 255, final byte < 255)
+            while (p < p_end && p[0] == 0xFF) {
                 payload_size += 255;
                 p++;
             }
+            if (p >= p_end) return -1;
             payload_size += *p++;
-            
-            
-//            printf("\n SEI===PAYLOADLENT===%d \n",payload_size);
+
             if (payload_size < 16)
                 return -1;
-            
+
+            // Check we have enough data for UUID (16 bytes) and payload
+            if (p + 16 + (payload_size - 16) > p_end)
+                return -1;
+
             memcpy(uuid, p, 16);
-            
-            *content = p + 16;
-            *size = payload_size - 16;
+
+            // Copy SEI content to newly allocated memory to avoid dangling pointer
+            // when the AVPacket is freed before the async consumer processes it
+            int content_size = payload_size - 16;
+            uint8_t *content_buf = (uint8_t *)malloc(content_size);
+            if (!content_buf)
+                return -1;
+            memcpy(content_buf, p + 16, content_size);
+
+            *content = content_buf;
+            *size = content_size;
 
             return 0;
-        }else { // not found contuie
-            p = p + 4 + nalu_len;
-            nalu_len = convert_hex_to_decimal(p); //更新为下一个nalu len
+        } else {
+            // Not a SEI NALU, skip to next NALU
+            if (is_annexb) {
+                // Search for next start code
+                uint8_t *next = p;
+                while (next + 2 < p_end) {
+                    if (next[0] == 0x00 && next[1] == 0x00 &&
+                        (next[2] == 0x01 || (next[2] == 0x00 && next + 3 < p_end && next[3] == 0x01))) {
+                        break;
+                    }
+                    next++;
+                }
+                if (next + 2 >= p_end) {
+                    // No more start codes found
+                    p = p_end;
+                } else {
+                    p = next;
+                }
+            } else {
+                // AVCC: skip using the length field
+                if (nalu_start + 4 + nalu_len > p_end) {
+                    p = p_end;
+                } else {
+                    p = nalu_start + 4 + nalu_len;
+                }
+                nalu_len = (p + 4 <= p_end) ? convert_hex_to_decimal(p) : 0;
+            }
             continue;
         }
-        
-//        p = p_end; // skip SEI for now
     }
     return -1;
 }
@@ -5574,60 +5630,117 @@ int parse_sei(AVPacket *pkt, uint8_t *uuid, uint8_t **content, int *size)
 
 int parse_sei_hevc(AVPacket *pkt, uint8_t *uuid, uint8_t **content, int *size)
 {
-//    printf("\n SEI===LENT===%d \n",pkt->size);
-            
     uint8_t *p = pkt->data;
     uint8_t *p_end = p + pkt->size;
     *content = NULL;
     *size = 0;
-    
-    /* 打印 nalu
-    uint8_t *SEI_p = pkt->data;
-    uint8_t *SEI_p_end = SEI_p + pkt->size;
-    if (SEI_p[4] == 0x06 && SEI_p[5] == 0x05) {
-        while (SEI_p < SEI_p_end) {
-            printf("%02x ",*SEI_p);
-            SEI_p++;
+
+    // Detect NALU length field format: Annex B (start code) or AVCC/HEVC (4-byte length prefix)
+    // Annex B starts with 00 00 00 01 or 00 00 01
+    // AVCC starts with a 4-byte big-endian length
+    int is_annexb = 0;
+    if (pkt->size >= 4 && p[0] == 0x00 && p[1] == 0x00 &&
+        ((p[2] == 0x00 && p[3] == 0x01) || (p[2] == 0x01))) {
+        is_annexb = 1;
+    }
+
+    uint32_t nalu_len;
+    if (is_annexb) {
+        // Annex B format: find NALU boundary by searching for the next start code
+        nalu_len = pkt->size; // fallback: treat entire packet as one NALU
+    } else {
+        // AVCC/HEVC format: 4-byte big-endian length prefix
+        nalu_len = convert_hex_to_decimal(p);
+        if (nalu_len > pkt->size) {
+            return -1;
         }
     }
-    //*/
-            
-    uint32_t nalu_len = convert_hex_to_decimal(p);
-//    printf("\n SEI===nalu_len===%d \n",nalu_len);
-    if (nalu_len > pkt->size) {
-        return -1;
-    }
-            
-    while (p < p_end) {
-        if (p[4] == 0x4E && p[5] == 0x01 && p[6] == 0x05 && p + 3 < p_end) { // found SEI NAL;  payload_type = 5 表示 user_data_unregistered;
-            
+
+    while (p + 7 < p_end) { // ensure p[4], p[5], p[6] are accessible (HEVC header is 3 bytes)
+        uint8_t *nalu_start;
+        if (is_annexb) {
+            // Skip start code (00 00 00 01 or 00 00 01) to reach NALU header
+            nalu_start = p;
+            if (p[0] == 0x00 && p[1] == 0x00 && p[2] == 0x00 && p[3] == 0x01) {
+                p += 4; // skip 4-byte start code
+            } else if (p[0] == 0x00 && p[1] == 0x00 && p[2] == 0x01) {
+                p += 3; // skip 3-byte start code
+            } else {
+                // Not a valid start code, skip this data
+                break;
+            }
+        } else {
+            nalu_start = p;
+            p += 4; // skip 4-byte length field
+        }
+
+        // Check if this is an HEVC SEI NALU (nal_unit_type=39 in HEVC 3-byte header)
+        // HEVC NALU header: forbidden_zero_bit(1) + nal_unit_type(6) + nuh_layer_id(6) + nuh_temporal_id_plus1(3)
+        // 0x4E = 0_100111_000001 -> nal_unit_type = 39 (SEI_PREFIX)
+        // 0x01 = second byte of HEVC header
+        // 0x05 = payload_type = 5 (user_data_unregistered)
+        if (p[0] == 0x4E && p[1] == 0x01 && p[2] == 0x05) {
             int payload_size = 0;
-            
-            p += 7;//跳过len 和 4e 01 05 解析payloadsize  （annexB nalu跳过前4个字节）
-            while( p[0] == 0xFF){
+            p += 3; // skip HEVC header(2 bytes) + payload_type(1 byte)
+
+            // Parse payload_size (variable-length encoding: 0xFF = 255, final byte < 255)
+            while (p < p_end && p[0] == 0xFF) {
                 payload_size += 255;
                 p++;
             }
+            if (p >= p_end) return -1;
             payload_size += *p++;
-            
-            
-//            printf("\n SEI===PAYLOADLENT===%d \n",payload_size);
+
             if (payload_size < 16)
                 return -1;
-            
+
+            // Check we have enough data for UUID (16 bytes) and payload
+            if (p + 16 + (payload_size - 16) > p_end)
+                return -1;
+
             memcpy(uuid, p, 16);
-            
-            *content = p + 16;
-            *size = payload_size - 16;
+
+            // Copy SEI content to newly allocated memory to avoid dangling pointer
+            // when the AVPacket is freed before the async consumer processes it
+            int content_size = payload_size - 16;
+            uint8_t *content_buf = (uint8_t *)malloc(content_size);
+            if (!content_buf)
+                return -1;
+            memcpy(content_buf, p + 16, content_size);
+
+            *content = content_buf;
+            *size = content_size;
 
             return 0;
-        }else { // not found contuie
-            p = p + 4 + nalu_len;
-            nalu_len = convert_hex_to_decimal(p); //更新为下一个nalu len
+        } else {
+            // Not a SEI NALU, skip to next NALU
+            if (is_annexb) {
+                // Search for next start code
+                uint8_t *next = p;
+                while (next + 2 < p_end) {
+                    if (next[0] == 0x00 && next[1] == 0x00 &&
+                        (next[2] == 0x01 || (next[2] == 0x00 && next + 3 < p_end && next[3] == 0x01))) {
+                        break;
+                    }
+                    next++;
+                }
+                if (next + 2 >= p_end) {
+                    // No more start codes found
+                    p = p_end;
+                } else {
+                    p = next;
+                }
+            } else {
+                // AVCC/HEVC: skip using the length field
+                if (nalu_start + 4 + nalu_len > p_end) {
+                    p = p_end;
+                } else {
+                    p = nalu_start + 4 + nalu_len;
+                }
+                nalu_len = (p + 4 <= p_end) ? convert_hex_to_decimal(p) : 0;
+            }
             continue;
         }
-        
-//        p = p_end; // skip SEI for now
     }
     return -1;
 }
