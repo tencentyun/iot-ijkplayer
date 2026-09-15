@@ -4480,6 +4480,12 @@ int ffp_prepare_async_l(FFPlayer *ffp, const char *file_name)
         return EIJK_OUT_OF_MEMORY;
     }
 
+    /* clear the cached statistic of the previous session, otherwise a reused
+     * ffp would report a stale (and usually inflated) cached duration until
+     * the first ffp_statistic_l() refresh lands. */
+    memset(&ffp->stat.audio_cache, 0, sizeof(ffp->stat.audio_cache));
+    memset(&ffp->stat.video_cache, 0, sizeof(ffp->stat.video_cache));
+
     ffp->is = is;
     ffp->input_filename = av_strdup(file_name);
     return 0;
@@ -4792,7 +4798,16 @@ void ffp_track_statistic_l(FFPlayer *ffp, AVStream *st, PacketQueue *q, FFTrackC
 
 void ffp_audio_statistic_l(FFPlayer *ffp)
 {
+    if (!ffp)
+        return;
+
+    /* ffp->is may be freed and set to NULL by stream_close()/ffp_wait_stop_l()
+     * on the stop/release path while read_thread is still running, so it must
+     * be revalidated here to avoid a use-after-free crash. */
     VideoState *is = ffp->is;
+    if (!is)
+        return;
+
     ffp_track_statistic_l(ffp, is->audio_st, &is->audioq, &ffp->stat.audio_cache);
     if (ffp->is_manifest) {
           las_set_audio_cached_duration_ms(&ffp->las_player_statistic, ffp->stat.audio_cache.duration);
@@ -4801,7 +4816,16 @@ void ffp_audio_statistic_l(FFPlayer *ffp)
 
 void ffp_video_statistic_l(FFPlayer *ffp)
 {
+    if (!ffp)
+        return;
+
+    /* ffp->is may be freed and set to NULL by stream_close()/ffp_wait_stop_l()
+     * on the stop/release path while read_thread is still running, so it must
+     * be revalidated here to avoid a use-after-free crash. */
     VideoState *is = ffp->is;
+    if (!is)
+        return;
+
     ffp_track_statistic_l(ffp, is->video_st, &is->videoq, &ffp->stat.video_cache);
     if (ffp->is_manifest) {
         las_set_video_cached_duration_ms(&ffp->las_player_statistic, ffp->stat.video_cache.duration);
