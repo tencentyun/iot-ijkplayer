@@ -36,54 +36,45 @@ if [ -z "$ANDROID_NDK" ]; then
 fi
 
 
-
-# try to detect NDK version
-export IJK_GCC_VER=4.9
-export IJK_GCC_64_VER=4.9
-export IJK_MAKE_TOOLCHAIN_FLAGS=
-export IJK_MAKE_FLAG=
-export IJK_NDK_REL=$(grep -o '^r[0-9]*.*' $ANDROID_NDK/RELEASE.TXT 2>/dev/null | sed 's/[[:space:]]*//g' | cut -b2-)
-case "$IJK_NDK_REL" in
-    10e*)
-        # we don't use 4.4.3 because it doesn't handle threads correctly.
-        if test -d ${ANDROID_NDK}/toolchains/arm-linux-androideabi-4.8
-        # if gcc 4.8 is present, it's there for all the archs (x86, mips, arm)
-        then
-            echo "NDKr$IJK_NDK_REL detected"
-
-            case "$UNAME_S" in
-                Darwin)
-                    export IJK_MAKE_TOOLCHAIN_FLAGS="$IJK_MAKE_TOOLCHAIN_FLAGS --system=darwin-x86_64"
-                ;;
-                CYGWIN_NT-*)
-                    export IJK_MAKE_TOOLCHAIN_FLAGS="$IJK_MAKE_TOOLCHAIN_FLAGS --system=windows-x86_64"
-                ;;
-            esac
-        else
-            echo "You need the NDKr10e or later"
-            exit 1
-        fi
+#--------------------
+# 确定 NDK 预构建 clang 工具链的 host tag。
+# 注意: macOS 上即使用 Apple Silicon(M1/M2) 也仍然是 darwin-x86_64
+# (NDK 提供的是包含 arm64 支持的胖二进制, 路径名沿用历史命名)。
+case "$UNAME_S" in
+    Darwin)
+        IJK_HOST_TAG=darwin-x86_64
+    ;;
+    CYGWIN_NT-*|MSYS_NT-*|MINGW*)
+        IJK_HOST_TAG=windows-x86_64
     ;;
     *)
-        IJK_NDK_REL=$(grep -o '^Pkg\.Revision.*=[0-9]*.*' $ANDROID_NDK/source.properties 2>/dev/null | sed 's/[[:space:]]*//g' | cut -d "=" -f 2)
-        echo "IJK_NDK_REL=$IJK_NDK_REL"
-        case "$IJK_NDK_REL" in
-            11*|12*|13*|14*)
-                if test -d ${ANDROID_NDK}/toolchains/arm-linux-androideabi-4.9
-                then
-                    echo "NDKr$IJK_NDK_REL detected"
-                else
-                    echo "You need the NDKr10e or later"
-                    exit 1
-                fi
-            ;;
-            *)
-                echo "You need the NDKr10e or later"
-                exit 1
-            ;;
-        esac
+        IJK_HOST_TAG=linux-x86_64
     ;;
 esac
+export IJK_HOST_TAG
+
+if [ ! -d "$ANDROID_NDK/toolchains/llvm/prebuilt/$IJK_HOST_TAG" ]; then
+    echo "ERROR: clang toolchain not found: $ANDROID_NDK/toolchains/llvm/prebuilt/$IJK_HOST_TAG"
+    echo "A modern NDK (r23+) is required; the legacy standalone GCC toolchain is no longer used."
+    exit 1
+fi
+
+export IJK_TOOLCHAIN="$ANDROID_NDK/toolchains/llvm/prebuilt/$IJK_HOST_TAG"
+
+# 供各编译脚本使用的公共工具(不含 target 前缀)
+export IJK_AR="$IJK_TOOLCHAIN/bin/llvm-ar"
+export IJK_RANLIB="$IJK_TOOLCHAIN/bin/llvm-ranlib"
+export IJK_STRIP="$IJK_TOOLCHAIN/bin/llvm-strip"
+export IJK_LD="$IJK_TOOLCHAIN/bin/ld"
+
+# 尽可能保证 clang 在 PATH 中可用
+export PATH="$IJK_TOOLCHAIN/bin:$PATH"
+
+
+#--------------------
+# NDK 版本打印(便于排障)
+IJK_NDK_REL=$(grep -o '^Pkg\.Revision.*=[0-9]*.*' $ANDROID_NDK/source.properties 2>/dev/null | sed 's/[[:space:]]*//g' | cut -d "=" -f 2)
+echo "IJK_NDK_REL=$IJK_NDK_REL"
 
 
 case "$UNAME_S" in

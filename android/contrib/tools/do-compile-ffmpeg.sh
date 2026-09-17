@@ -40,7 +40,8 @@ fi
 
 
 FF_BUILD_ROOT=`pwd`
-FF_ANDROID_PLATFORM=android-9
+# NDK r23+ 最低支持 API 21, 不能再使用 android-9
+FF_ANDROID_PLATFORM=android-21
 
 
 FF_BUILD_NAME=
@@ -65,16 +66,13 @@ FF_ASSEMBLER_SUB_DIRS=
 #--------------------
 echo ""
 echo "--------------------"
-echo "[*] make NDK standalone toolchain"
+echo "[*] detect NDK clang toolchain"
 echo "--------------------"
 . ./tools/do-detect-env.sh
-FF_MAKE_TOOLCHAIN_FLAGS=$IJK_MAKE_TOOLCHAIN_FLAGS
 FF_MAKE_FLAGS=$IJK_MAKE_FLAG
-FF_GCC_VER=$IJK_GCC_VER
-FF_GCC_64_VER=$IJK_GCC_64_VER
 
 
-#----- armv7a begin -----
+#----- arch begin -----
 if [ "$FF_ARCH" = "armv7a" ]; then
     FF_BUILD_NAME=ffmpeg-armv7a
     FF_BUILD_NAME_OPENSSL=openssl-armv7a
@@ -82,7 +80,7 @@ if [ "$FF_ARCH" = "armv7a" ]; then
     FF_SOURCE=$FF_BUILD_ROOT/$FF_BUILD_NAME
 
     FF_CROSS_PREFIX=arm-linux-androideabi
-    FF_TOOLCHAIN_NAME=${FF_CROSS_PREFIX}-${FF_GCC_VER}
+    FF_CLANG_TARGET=armv7a-linux-androideabi
 
     FF_CFG_FLAGS="$FF_CFG_FLAGS --arch=arm --cpu=cortex-a8"
     FF_CFG_FLAGS="$FF_CFG_FLAGS --enable-neon"
@@ -100,7 +98,7 @@ elif [ "$FF_ARCH" = "armv5" ]; then
     FF_SOURCE=$FF_BUILD_ROOT/$FF_BUILD_NAME
 
     FF_CROSS_PREFIX=arm-linux-androideabi
-    FF_TOOLCHAIN_NAME=${FF_CROSS_PREFIX}-${FF_GCC_VER}
+    FF_CLANG_TARGET=armv7a-linux-androideabi
 
     FF_CFG_FLAGS="$FF_CFG_FLAGS --arch=arm"
 
@@ -116,7 +114,7 @@ elif [ "$FF_ARCH" = "x86" ]; then
     FF_SOURCE=$FF_BUILD_ROOT/$FF_BUILD_NAME
 
     FF_CROSS_PREFIX=i686-linux-android
-    FF_TOOLCHAIN_NAME=x86-${FF_GCC_VER}
+    FF_CLANG_TARGET=i686-linux-android
 
     FF_CFG_FLAGS="$FF_CFG_FLAGS --arch=x86 --cpu=i686 --enable-yasm"
 
@@ -134,7 +132,7 @@ elif [ "$FF_ARCH" = "x86_64" ]; then
     FF_SOURCE=$FF_BUILD_ROOT/$FF_BUILD_NAME
 
     FF_CROSS_PREFIX=x86_64-linux-android
-    FF_TOOLCHAIN_NAME=${FF_CROSS_PREFIX}-${FF_GCC_64_VER}
+    FF_CLANG_TARGET=x86_64-linux-android
 
     FF_CFG_FLAGS="$FF_CFG_FLAGS --arch=x86_64 --enable-yasm"
 
@@ -152,7 +150,7 @@ elif [ "$FF_ARCH" = "arm64" ]; then
     FF_SOURCE=$FF_BUILD_ROOT/$FF_BUILD_NAME
 
     FF_CROSS_PREFIX=aarch64-linux-android
-    FF_TOOLCHAIN_NAME=${FF_CROSS_PREFIX}-${FF_GCC_64_VER}
+    FF_CLANG_TARGET=aarch64-linux-android
 
     FF_CFG_FLAGS="$FF_CFG_FLAGS --arch=aarch64 --enable-yasm"
 
@@ -175,10 +173,10 @@ if [ ! -d $FF_SOURCE ]; then
     exit 1
 fi
 
-FF_TOOLCHAIN_PATH=$FF_BUILD_ROOT/build/$FF_BUILD_NAME/toolchain
-FF_MAKE_TOOLCHAIN_FLAGS="$FF_MAKE_TOOLCHAIN_FLAGS --install-dir=$FF_TOOLCHAIN_PATH"
+# NDK clang 内置 sysroot(按 API level 区分)
+FF_API_LEVEL=${FF_ANDROID_PLATFORM#android-}
+FF_SYSROOT=$IJK_TOOLCHAIN/sysroot
 
-FF_SYSROOT=$FF_TOOLCHAIN_PATH/sysroot
 FF_PREFIX=$FF_BUILD_ROOT/build/$FF_BUILD_NAME/output
 FF_DEP_OPENSSL_INC=$FF_BUILD_ROOT/build/$FF_BUILD_NAME_OPENSSL/output/include
 FF_DEP_OPENSSL_LIB=$FF_BUILD_ROOT/build/$FF_BUILD_NAME_OPENSSL/output/lib
@@ -194,17 +192,6 @@ esac
 
 
 mkdir -p $FF_PREFIX
-# mkdir -p $FF_SYSROOT
-
-
-FF_TOOLCHAIN_TOUCH="$FF_TOOLCHAIN_PATH/touch"
-if [ ! -f "$FF_TOOLCHAIN_TOUCH" ]; then
-    $ANDROID_NDK/build/tools/make-standalone-toolchain.sh \
-        $FF_MAKE_TOOLCHAIN_FLAGS \
-        --platform=$FF_ANDROID_PLATFORM \
-        --toolchain=$FF_TOOLCHAIN_NAME
-    touch $FF_TOOLCHAIN_TOUCH;
-fi
 
 
 #--------------------
@@ -212,18 +199,36 @@ echo ""
 echo "--------------------"
 echo "[*] check ffmpeg env"
 echo "--------------------"
-export PATH=$FF_TOOLCHAIN_PATH/bin/:$PATH
-#export CC="ccache ${FF_CROSS_PREFIX}-gcc"
-export CC="${FF_CROSS_PREFIX}-gcc"
-export LD=${FF_CROSS_PREFIX}-ld
-export AR=${FF_CROSS_PREFIX}-ar
-export STRIP=${FF_CROSS_PREFIX}-strip
+# clang 交叉编译: 使用 NDK 预构建 llvm 工具链(含 arm64 主机支持)。
+# 注意: ffmpeg 的 --cc 参数值不能包含空格分隔的额外参数, 因此这里使用 NDK
+# 提供的带 target 前缀的 clang wrapper(如 armv7a-linux-androideabi21-clang),
+# 它自带 --target, 直接把可执行文件路径作为 CC 即可。
+export CC="$IJK_TOOLCHAIN/bin/${FF_CLANG_TARGET}${FF_API_LEVEL}-clang"
+export LD="$IJK_TOOLCHAIN/bin/ld"
+export AR="$IJK_AR"
+export STRIP="$IJK_STRIP"
+export RANLIB="$IJK_RANLIB"
+export NM="$IJK_TOOLCHAIN/bin/llvm-nm"
 
+if [ ! -x "$CC" ]; then
+    echo "ERROR: clang wrapper not found or not executable: $CC"
+    ls -l "$IJK_TOOLCHAIN/bin" | grep -E "${FF_CLANG_TARGET}" || true
+    exit 1
+fi
+
+echo "CC=$CC"
+echo "AR=$AR"
+
+# clang 下不再使用 -Werror=strict-aliasing(旧 ffmpeg 代码会大量触发),
+# 并放宽若干在新 clang 中会报错/告警的选项。
 FF_CFLAGS="-O3 -Wall -pipe \
     -std=c99 \
     -ffast-math \
-    -fstrict-aliasing -Werror=strict-aliasing \
-    -Wno-psabi -Wa,--noexecstack \
+    -fstrict-aliasing \
+    -Wno-psabi \
+    -Wno-deprecated-declarations \
+    -Wno-pointer-sign \
+    -Wno-unused-command-line-argument \
     -DANDROID -DNDEBUG"
 
 # cause av_strlcpy crash with gcc4.7, gcc4.8
@@ -265,13 +270,25 @@ FF_CFG_FLAGS="$FF_CFG_FLAGS $COMMON_FF_CFG_FLAGS"
 FF_CFG_FLAGS="$FF_CFG_FLAGS --prefix=$FF_PREFIX"
 
 # Advanced options (experts only):
-FF_CFG_FLAGS="$FF_CFG_FLAGS --cross-prefix=${FF_CROSS_PREFIX}-"
+# clang 场景: 不使用 --cross-prefix(会去找 arm-linux-androideabi-gcc 等)。
+# 注意: 不显式传 --ld / --sysroot —— NDK 的 clang wrapper 自带 target 与 sysroot,
+# 并由 clang 自行驱动链接器; 显式传 --ld 反而会导致链接测试失败。
+FF_CFG_FLAGS="$FF_CFG_FLAGS --cc=$CC"
+FF_CFG_FLAGS="$FF_CFG_FLAGS --ar=$AR"
+FF_CFG_FLAGS="$FF_CFG_FLAGS --nm=$NM"
+FF_CFG_FLAGS="$FF_CFG_FLAGS --ranlib=$RANLIB"
+FF_CFG_FLAGS="$FF_CFG_FLAGS --strip=$STRIP"
 FF_CFG_FLAGS="$FF_CFG_FLAGS --enable-cross-compile"
-FF_CFG_FLAGS="$FF_CFG_FLAGS --target-os=linux"
+FF_CFG_FLAGS="$FF_CFG_FLAGS --target-os=android"
 FF_CFG_FLAGS="$FF_CFG_FLAGS --enable-pic"
 # FF_CFG_FLAGS="$FF_CFG_FLAGS --disable-symver"
 
-if [ "$FF_ARCH" = "x86" ]; then
+# 汇编策略:
+# arm64(aarch64) 的 fft_neon.S 等汇编直接引用 C 全局符号, 在 PIC 动态库
+# (libijkffmpeg.so) 下会报 R_AARCH64_ADR_PREL_PG_HI21 cannot be used against
+# symbol ...; recompile with -fPIC, 故 arm64 关闭 asm。
+# x86 同样关闭(原逻辑)。其余架构保留 asm 优化。
+if [ "$FF_ARCH" = "x86" ] || [ "$FF_ARCH" = "arm64" ]; then
     FF_CFG_FLAGS="$FF_CFG_FLAGS --disable-asm"
 else
     # Optimization options (experts only):
@@ -301,10 +318,16 @@ cd $FF_SOURCE
 if [ -f "./config.h" ]; then
     echo 'reuse configure'
 else
-    which $CC
-    ./configure $FF_CFG_FLAGS \
+    $CC --version
+    if ! ./configure $FF_CFG_FLAGS \
         --extra-cflags="$FF_CFLAGS $FF_EXTRA_CFLAGS" \
-        --extra-ldflags="$FF_DEP_LIBS $FF_EXTRA_LDFLAGS"
+        --extra-ldflags="$FF_DEP_LIBS $FF_EXTRA_LDFLAGS"; then
+        echo "==================== ffmpeg configure FAILED ===================="
+        echo "------------------------- config.log (tail) -------------------------"
+        tail -n 120 ffbuild/config.log 2>/dev/null || tail -n 120 config.log 2>/dev/null
+        echo "--------------------------------------------------------------------"
+        exit 1
+    fi
     make clean
 fi
 
@@ -346,11 +369,12 @@ do
     done
 done
 
-$CC -lm -lz -shared --sysroot=$FF_SYSROOT -Wl,--no-undefined -Wl,-z,noexecstack $FF_EXTRA_LDFLAGS \
+$CC -shared --sysroot=$FF_SYSROOT -Wl,--no-undefined -Wl,-z,noexecstack $FF_EXTRA_LDFLAGS \
     -Wl,-soname,libijkffmpeg.so \
     $FF_C_OBJ_FILES \
     $FF_ASM_OBJ_FILES \
     $FF_DEP_LIBS \
+    -lm -lz \
     -o $FF_PREFIX/libijkffmpeg.so
 
 mysedi() {

@@ -18,15 +18,17 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
 
 APP_OPTIM := release
+# NDK r23+ 最低支持 API 21; 旧 gcc 4.9 toolchain 与 stlport 已被移除。
 APP_PLATFORM := android-21
 APP_ABI := arm64-v8a
-NDK_TOOLCHAIN_VERSION=4.9
 APP_PIE := false
 
-APP_STL := stlport_static
+APP_STL := c++_static
 
 APP_CFLAGS := -O3 -Wall -pipe \
     -ffast-math \
-    -fstrict-aliasing -Werror=strict-aliasing \
-    -Wno-psabi -Wa,--noexecstack \
+    -fstrict-aliasing \
+    -Wno-psabi \
+    -Wno-deprecated-declarations \
+    -Wno-unused-command-line-argument \
     -DANDROID -DNDEBUG

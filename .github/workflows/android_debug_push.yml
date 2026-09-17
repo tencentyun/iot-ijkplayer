@@ -2,10 +2,8 @@ name: IOT IJK ANDROID DEBUG CI
 
 on:
   push:
-    tags-ignore:
-      - '*'
     branches:
-      - '*'
+      - '**'
   pull_request:
     branches: [ master ]
 
@@ -24,51 +22,50 @@ jobs:
         with:
           fetch-depth: 0
       - run: |
-          # 解密GPG密钥环文件
-          gpg -d --passphrase "$GPG_DECRYPT_PASSPHRASE" --batch --quiet .github/android/secring.gpg.asc > secring.gpg
+          # 解密 GPG 私钥环文件到临时 keyring
+          gpg -d --passphrase "$GPG_DECRYPT_PASSPHRASE" --batch --quiet .github/android/secring.gpg.asc > /tmp/secring.gpg
+          echo "==== decrypted keyring ===="
+          ls -l /tmp/secring.gpg
+          # 导入到 gpg 并导出为 in-memory ASCII-armored 私钥（vanniktech 官方推荐的 CI 方式）
+          gpg --batch --import /tmp/secring.gpg
+          echo "==== gpg secret keys ===="
+          gpg --list-secret-keys --keyid-format LONG
 
-      - name: Download r10e NDK
+      - name: Download r25c NDK
         run: |
-          wget https://dl.google.com/android/repository/android-ndk-r10e-darwin-x86_64.zip
-          unzip android-ndk-r10e-darwin-x86_64.zip
+          # macOS 上 NDK 仅提供 DMG(需公证); r25c 为 universal 二进制, 原生支持 Apple Silicon。
+          curl -L -o android-ndk-r25c-darwin.dmg https://dl.google.com/android/repository/android-ndk-r25c-darwin.dmg
+          hdiutil attach -nobrowse -mountpoint /Volumes/ndk android-ndk-r25c-darwin.dmg
+          mkdir -p "$GITHUB_WORKSPACE/android-ndk-r25c"
+          cp -R /Volumes/ndk/AndroidNDK*.app/Contents/NDK/. "$GITHUB_WORKSPACE/android-ndk-r25c/"
+          hdiutil detach /Volumes/ndk
+          ls -l "$GITHUB_WORKSPACE/android-ndk-r25c"
       - name: Update SDK Version
         run: bash .github/script/updateVersionForSnapshot.sh
       - uses: actions/setup-java@v4
         with:
             distribution: 'temurin' # See 'Supported distributions' for available options
             java-version: '17'
-      - name: Update Values of Signing
-        run: |
-            export KEY_ID_OF_SIGN=$IOT_GPG_KEYNAME
-            export PASSWORD_OF_SIGN=$IOT_GPG_PASSPHRASE
-            sh .github/script/updateValuesForSign.sh android/ijkplayer/gradle.properties
 
       - name: Build with Gradle
         run: |
-          ls -l /Users/runner/work/iot-ijkplayer/iot-ijkplayer/android-ndk-r10e
-          export ANDROID_NDK=/Users/runner/work/iot-ijkplayer/iot-ijkplayer/android-ndk-r10e
-          export ANDROID_NDK_ROOT=/Users/runner/work/iot-ijkplayer/iot-ijkplayer/android-ndk-r10e
+          set -e
+          export ANDROID_NDK="$GITHUB_WORKSPACE/android-ndk-r25c"
+          export ANDROID_NDK_ROOT="$ANDROID_NDK"
+          ls -l "$ANDROID_NDK"
 
+          # build_armv7a.sh 内部已 set -e 并校验 .so，编译失败会在此中断
           sh .github/script/build_armv7a.sh
+
           echo "Current directory before cd: $(pwd)"
           cd android/ijkplayer
-          
-          # 检测 armv7a 下的 .so 文件
-          echo "Checking armv7a .so files..."
-          if [ -d "ijkplayer-armv7a/src/main/libs/armeabi-v7a" ]; then
-            ls -l ijkplayer-armv7a/src/main/libs/armeabi-v7a
-          else
-            echo "Error: ijkplayer-armv7a/src/main/libs/armeabi-v7a directory not found!"
-          fi
 
-          # 检测 arm64 下的 .so 文件
+          # 二次校验：.so 必须存在，缺失则让流水线失败，避免打出空包
+          echo "Checking armv7a .so files..."
+          ls -l ijkplayer-armv7a/src/main/libs/armeabi-v7a/*.so
           echo "Checking arm64 .so files..."
-          if [ -d "ijkplayer-arm64/src/main/libs/arm64-v8a" ]; then
-            ls -l ijkplayer-arm64/src/main/libs/arm64-v8a
-          else
-            echo "Error: ijkplayer-arm64/src/main/libs/arm64-v8a directory not found!"
-          fi
-        
+          ls -l ijkplayer-arm64/src/main/libs/arm64-v8a/*.so
+
           ./gradlew :ijkplayer-armv7a:assemble
           ./gradlew :ijkplayer-arm64:assemble
           ./gradlew :ijkplayer-java:assemble
@@ -85,12 +82,38 @@ jobs:
             /Users/runner/work/iot-ijkplayer/iot-ijkplayer/android/ijkplayer/ijkplayer-java/build/outputs/aar/ijkplayer-java-debug.aar
 
       - name: Publish aar to Maven
+        env:
+          # vanniktech 官方推荐的 in-memory 签名方式，绕开 keyring 文件格式/路径问题
+          ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.IOT_SONATYPE_USERNAME }}
+          ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.IOT_SONATYPE_PASSWORD }}
+          ORG_GRADLE_PROJECT_signingInMemoryKeyId: ${{ secrets.IOT_GPG_KEYNAME }}
+          ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.IOT_GPG_PASSPHRASE }}
         run: |
-          pwd
-          ls -l
           cd android/ijkplayer
-          pwd
-          ls -l
-          ./gradlew :ijkplayer-armv7a:publish
-          ./gradlew :ijkplayer-arm64:publish
-          ./gradlew :ijkplayer-java:publish
+
+          echo "==== export in-memory signing key ===="
+          # 导出 ASCII-armored 私钥并注入为 gradle property（不落盘打印）
+          export ORG_GRADLE_PROJECT_signingInMemoryKey="$(gpg --batch --pinentry-mode loopback --passphrase "$IOT_GPG_PASSPHRASE" --export-secret-keys --armor "$IOT_GPG_KEYNAME")"
+          if [ -z "$ORG_GRADLE_PROJECT_signingInMemoryKey" ]; then
+            echo "ERROR: exported signing key is EMPTY. check IOT_GPG_KEYNAME / IOT_GPG_PASSPHRASE."
+          else
+            echo "signing key exported, length=${#ORG_GRADLE_PROJECT_signingInMemoryKey}"
+          fi
+          echo "signingInMemoryKeyId set: $([ -n "$ORG_GRADLE_PROJECT_signingInMemoryKeyId" ] && echo yes || echo NO)"
+          echo "mavenCentralUsername set: $([ -n "$ORG_GRADLE_PROJECT_mavenCentralUsername" ] && echo yes || echo NO)"
+
+          echo "==== check .so inside aar ===="
+          for m in armv7a arm64; do
+            aar="ijkplayer-$m/build/outputs/aar/ijkplayer-$m-debug.aar"
+            if [ -f "$aar" ]; then
+              echo "-- $aar --"
+              unzip -l "$aar" | grep -E '\.so' || echo "  (no .so found in $aar)"
+            else
+              echo "  MISSING aar: $aar"
+            fi
+          done
+
+          echo "==== publish ===="
+          ./gradlew :ijkplayer-armv7a:publishAndReleaseToMavenCentral --stacktrace
+          ./gradlew :ijkplayer-arm64:publishAndReleaseToMavenCentral --stacktrace
+          ./gradlew :ijkplayer-java:publishAndReleaseToMavenCentral --stacktrace

@@ -13,17 +13,25 @@ env:
 
 jobs:
   build:
-    runs-on: macos-14
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
       - run: |
-          gpg -d --passphrase "$GPG_DECRYPT_PASSPHRASE" --batch --quiet .github/android/secring.gpg.asc > android/ijkplayer/secring.gpg
-      - name: Download r10e NDK
+          # 解密 GPG 私钥环并导入，供后续导出为 in-memory 签名 key
+          gpg -d --passphrase "$GPG_DECRYPT_PASSPHRASE" --batch --quiet .github/android/secring.gpg.asc > /tmp/secring.gpg
+          gpg --batch --import /tmp/secring.gpg
+          gpg --list-secret-keys --keyid-format LONG
+      - name: Download r25c NDK
         run: |
-          wget https://dl.google.com/android/repository/android-ndk-r10e-darwin-x86_64.zip
-          unzip android-ndk-r10e-darwin-x86_64.zip
+          # macOS 上 NDK 仅提供 DMG(需公证); r25c 为 universal 二进制, 原生支持 Apple Silicon。
+          curl -L -o android-ndk-r25c-darwin.dmg https://dl.google.com/android/repository/android-ndk-r25c-darwin.dmg
+          hdiutil attach -nobrowse -mountpoint /Volumes/ndk android-ndk-r25c-darwin.dmg
+          mkdir -p "$GITHUB_WORKSPACE/android-ndk-r25c"
+          cp -R /Volumes/ndk/AndroidNDK*.app/Contents/NDK/. "$GITHUB_WORKSPACE/android-ndk-r25c/"
+          hdiutil detach /Volumes/ndk
+          ls -l "$GITHUB_WORKSPACE/android-ndk-r25c"
       - name: Update SDK Version
         run: |
           rtt=$(git describe --tags `git rev-list --tags --max-count=1`)
@@ -35,24 +43,38 @@ jobs:
         with:
             distribution: 'temurin' # See 'Supported distributions' for available options
             java-version: '17'
-      - name: Update Values of Signing
-        run: |
-          export KEY_ID_OF_SIGN=$IOT_GPG_KEYNAME
-          export PASSWORD_OF_SIGN=$IOT_GPG_PASSPHRASE
-          sh .github/script/updateValuesForSign.sh
       - name: Build with Gradle
         run: |
-          ls -l /Users/runner/work/iot-ijkplayer/iot-ijkplayer/android-ndk-r10e
-          export ANDROID_NDK=/Users/runner/work/iot-ijkplayer/iot-ijkplayer/android-ndk-r10e
-          export ANDROID_NDK_ROOT=/Users/runner/work/iot-ijkplayer/iot-ijkplayer/android-ndk-r10e
+          set -e
+          export ANDROID_NDK="$GITHUB_WORKSPACE/android-ndk-r25c"
+          export ANDROID_NDK_ROOT="$ANDROID_NDK"
+          ls -l "$ANDROID_NDK"
           
+          # build_armv7a.sh 内部已 set -e 并校验 .so，编译失败会在此中断
           sh .github/script/build_armv7a.sh
           cd android/ijkplayer
+
+          # 二次校验：.so 必须存在，缺失则让流水线失败
+          ls -l ijkplayer-armv7a/src/main/libs/armeabi-v7a/*.so
+          ls -l ijkplayer-arm64/src/main/libs/arm64-v8a/*.so
+
           ./gradlew :ijkplayer-armv7a:assemble
           ./gradlew :ijkplayer-arm64:assemble
           ./gradlew :ijkplayer-java:assemble
       - name: Publish aar Maven
+        env:
+          ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.IOT_SONATYPE_USERNAME }}
+          ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.IOT_SONATYPE_PASSWORD }}
+          ORG_GRADLE_PROJECT_signingInMemoryKeyId: ${{ secrets.IOT_GPG_KEYNAME }}
+          ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.IOT_GPG_PASSPHRASE }}
         run: |
-          ./gradlew :ijkplayer-armv7a:publish
-          ./gradlew :ijkplayer-arm64:publish
-          ./gradlew :ijkplayer-java:publish
+          cd android/ijkplayer
+          export ORG_GRADLE_PROJECT_signingInMemoryKey="$(gpg --batch --pinentry-mode loopback --passphrase "$IOT_GPG_PASSPHRASE" --export-secret-keys --armor "$IOT_GPG_KEYNAME")"
+          if [ -z "$ORG_GRADLE_PROJECT_signingInMemoryKey" ]; then
+            echo "ERROR: exported signing key is EMPTY. check IOT_GPG_KEYNAME / IOT_GPG_PASSPHRASE."
+          else
+            echo "signing key exported, length=${#ORG_GRADLE_PROJECT_signingInMemoryKey}"
+          fi
+          ./gradlew :ijkplayer-armv7a:publishAndReleaseToMavenCentral --stacktrace
+          ./gradlew :ijkplayer-arm64:publishAndReleaseToMavenCentral --stacktrace
+          ./gradlew :ijkplayer-java:publishAndReleaseToMavenCentral --stacktrace
