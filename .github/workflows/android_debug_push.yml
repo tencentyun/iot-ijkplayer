@@ -28,6 +28,10 @@ jobs:
           ls -l /tmp/secring.gpg
           # 导入到 gpg 并导出为 in-memory ASCII-armored 私钥（vanniktech 官方推荐的 CI 方式）
           gpg --batch --import /tmp/secring.gpg
+          echo "==== signing context ===="
+          echo "ref=$GITHUB_REF sha=$GITHUB_SHA"
+          echo "keyring_sha256=$(shasum -a 256 .github/android/secring.gpg.asc | awk '{print $1}')"
+          echo "secret lengths: keyname=${#IOT_GPG_KEYNAME} passphrase=${#IOT_GPG_PASSPHRASE} decrypt=${#GPG_DECRYPT_PASSPHRASE}"
           echo "==== gpg secret keys ===="
           gpg --list-secret-keys --keyid-format LONG
 

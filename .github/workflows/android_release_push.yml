@@ -27,6 +27,10 @@ jobs:
           [ -s /tmp/secring.gpg ] || { echo "ERROR: decrypted keyring is empty"; exit 1; }
           gpg --batch --import /tmp/secring.gpg
           gpg --list-secret-keys --keyid-format LONG
+          echo "==== signing context ===="
+          echo "ref=$GITHUB_REF sha=$GITHUB_SHA"
+          echo "keyring_sha256=$(shasum -a 256 .github/android/secring.gpg.asc | awk '{print $1}')"
+          echo "secret lengths: keyname=${#IOT_GPG_KEYNAME} passphrase=${#IOT_GPG_PASSPHRASE} decrypt=${#GPG_DECRYPT_PASSPHRASE}"
           echo "==== secret key fingerprints ===="
           gpg --list-secret-keys --with-colons | awk -F: '/^fpr/{print $10}'
           if [ -n "${IOT_GPG_KEYNAME:-}" ] && gpg --list-secret-keys "$IOT_GPG_KEYNAME" > /dev/null 2>&1; then
