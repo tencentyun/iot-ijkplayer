@@ -1,8 +1,10 @@
 name: IOT IJK ANDROID RELEASE CI
 
 on:
-  release:
-    types: [published]
+  # 与 snapshot 流水线保持一致：由 tag push 触发，避免 release 事件下 secret 注入差异
+  push:
+    tags:
+      - 'v*'
 
 env:
   IOT_SONATYPE_USERNAME: ${{ secrets.IOT_SONATYPE_USERNAME }}
@@ -18,11 +20,32 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - run: |
+      - name: Import GPG signing key
+        run: |
+          set -euo pipefail
           # 解密 GPG 私钥环并导入，供后续导出为 in-memory 签名 key
+          [ -n "${GPG_DECRYPT_PASSPHRASE:-}" ] || { echo "ERROR: GPG_DECRYPT_PASSPHRASE is empty"; exit 1; }
           gpg -d --passphrase "$GPG_DECRYPT_PASSPHRASE" --batch --quiet .github/android/secring.gpg.asc > /tmp/secring.gpg
+          [ -s /tmp/secring.gpg ] || { echo "ERROR: decrypted keyring is empty"; exit 1; }
           gpg --batch --import /tmp/secring.gpg
           gpg --list-secret-keys --keyid-format LONG
+          echo "==== signing context ===="
+          echo "ref=$GITHUB_REF sha=$GITHUB_SHA"
+          echo "keyring_sha256=$(shasum -a 256 .github/android/secring.gpg.asc | awk '{print $1}')"
+          echo "secret lengths: keyname=${#IOT_GPG_KEYNAME} passphrase=${#IOT_GPG_PASSPHRASE} decrypt=${#GPG_DECRYPT_PASSPHRASE}"
+          echo "==== secret key fingerprints ===="
+          gpg --list-secret-keys --with-colons | awk -F: '/^fpr/{print $10}'
+          NOW=$(date +%s)
+          if gpg --list-secret-keys --with-colons | awk -F: -v now="$NOW" '/^sec/{ if ($7 != "" && $7 + 0 < now) bad=1 } END{ exit bad ? 0 : 1 }'; then
+            echo "ERROR: the imported GPG signing key is expired; renew or replace it before publishing."
+            gpg --list-secret-keys --keyid-format LONG
+            exit 1
+          fi
+          if [ -n "${IOT_GPG_KEYNAME:-}" ] && gpg --list-secret-keys "$IOT_GPG_KEYNAME" > /dev/null 2>&1; then
+            echo "IOT_GPG_KEYNAME matched: $IOT_GPG_KEYNAME"
+          else
+            echo "WARN: IOT_GPG_KEYNAME('${IOT_GPG_KEYNAME:-}') not matched, publish step will fall back to the first secret key"
+          fi
       - name: Download r25c NDK
         run: |
           # macOS 上 NDK 仅提供 DMG(需公证); r25c 为 universal 二进制, 原生支持 Apple Silicon。
@@ -33,16 +56,31 @@ jobs:
           hdiutil detach /Volumes/ndk
           ls -l "$GITHUB_WORKSPACE/android-ndk-r25c"
       - name: Update SDK Version
+        env:
+          # 通过 env 传递，避免 tag 内容直接拼进 shell
+          RELEASE_TAG: ${{ github.ref_name }}
         run: |
-          rtt=$(git describe --tags `git rev-list --tags --max-count=1`)
-          rt=${rtt#*v}
-          rc=$(git rev-parse --short HEAD)
+          set -euo pipefail
+          # 以触发本次 release 的 tag 为准，避免误用仓库里其它最新 tag
+          TAG="${RELEASE_TAG:-}"
+          if [ -z "$TAG" ]; then
+            TAG=$(git describe --tags $(git rev-list --tags --max-count=1))
+          fi
+          rt=${TAG#*v}
+          [ -n "$rt" ] || { echo "ERROR: cannot resolve release version from tag '$TAG'"; exit 1; }
+          echo "release tag=$TAG, version=$rt"
           cd android/ijkplayer
-          sed -i "" 's#def version.*#def version = \"'$rt'\"#g' config.gradle
+          sed -i "" "s#def version.*#def version = \"$rt\"#g" config.gradle
+          grep 'def version' config.gradle
       - uses: actions/setup-java@v4
         with:
             distribution: 'temurin' # See 'Supported distributions' for available options
             java-version: '17'
+            # 复用 Gradle 依赖缓存，减少 Maven Central 请求（429 限流的主要来源）
+            cache: 'gradle'
+            cache-dependency-path: |
+              android/ijkplayer/**/*.gradle
+              android/ijkplayer/gradle/wrapper/gradle-wrapper.properties
       - name: Build with Gradle
         run: |
           set -e
@@ -65,16 +103,69 @@ jobs:
         env:
           ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.IOT_SONATYPE_USERNAME }}
           ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.IOT_SONATYPE_PASSWORD }}
-          ORG_GRADLE_PROJECT_signingInMemoryKeyId: ${{ secrets.IOT_GPG_KEYNAME }}
           ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.IOT_GPG_PASSPHRASE }}
         run: |
+          set -euo pipefail
           cd android/ijkplayer
-          export ORG_GRADLE_PROJECT_signingInMemoryKey="$(gpg --batch --pinentry-mode loopback --passphrase "$IOT_GPG_PASSPHRASE" --export-secret-keys --armor "$IOT_GPG_KEYNAME")"
-          if [ -z "$ORG_GRADLE_PROJECT_signingInMemoryKey" ]; then
-            echo "ERROR: exported signing key is EMPTY. check IOT_GPG_KEYNAME / IOT_GPG_PASSPHRASE."
-          else
-            echo "signing key exported, length=${#ORG_GRADLE_PROJECT_signingInMemoryKey}"
+
+          # keyring 内含多把私钥，且 IOT_GPG_KEYNAME 可能为空或与 keyring 不一致：
+          # 1) secret 指定的 key 若存在，只用它；导出失败直接报错，避免用错身份签名
+          # 2) 未指定/未命中时，逐个尝试，选出能被 IOT_GPG_PASSPHRASE 解锁的那把
+          PINNED=""
+          if [ -n "${IOT_GPG_KEYNAME:-}" ]; then
+            PINNED=$(gpg --list-secret-keys --with-colons "$IOT_GPG_KEYNAME" 2>/dev/null | awk -F: '/^fpr/{print $10; exit}' || true)
           fi
+
+          export_signing_key() {
+            gpg --batch --pinentry-mode loopback \
+                --passphrase "${IOT_GPG_PASSPHRASE:-}" \
+                --export-secret-keys --armor "$1"
+          }
+
+          # secret 显式指定了 key 却匹配不到，直接失败：避免用错误身份签名
+          if [ -n "${IOT_GPG_KEYNAME:-}" ] && [ -z "$PINNED" ]; then
+            echo "ERROR: IOT_GPG_KEYNAME='$IOT_GPG_KEYNAME' is not found in the imported keyring."
+            echo "       the keyring may be stale (list above) or IOT_GPG_KEYNAME points to another key."
+            gpg --list-secret-keys --keyid-format LONG
+            exit 1
+          fi
+
+          KEYID=""
+          ARMORED=""
+          if [ -n "$PINNED" ]; then
+            KEYID="$PINNED"
+            echo "pinned signing key: $KEYID"
+            if ! ARMORED="$(export_signing_key "$KEYID" 2>/tmp/gpg-export.err)" || [ -z "$ARMORED" ]; then
+              cat /tmp/gpg-export.err >&2
+              echo "ERROR: cannot unlock pinned key $KEYID. IOT_GPG_PASSPHRASE does not match this key."
+              echo "       fix the secret, or clear IOT_GPG_KEYNAME to let the job pick an unlockable key."
+              exit 1
+            fi
+          else
+            CANDIDATES=$(gpg --list-secret-keys --with-colons 2>/dev/null | awk -F: '
+              /^sec/{want=1; next}
+              want && /^fpr/{print $10; want=0}')
+            [ -n "$CANDIDATES" ] || { echo "ERROR: no secret key found in keyring"; gpg --list-secret-keys; exit 1; }
+            for fpr in $CANDIDATES; do
+              if ARMORED="$(export_signing_key "$fpr" 2>/dev/null)" && [ -n "$ARMORED" ]; then
+                KEYID="$fpr"
+                echo "using signing key unlocked by passphrase: $KEYID"
+                break
+              fi
+            done
+            if [ -z "$ARMORED" ]; then
+              echo "ERROR: IOT_GPG_PASSPHRASE cannot unlock any secret key in the keyring."
+              gpg --list-secret-keys --keyid-format LONG
+              exit 1
+            fi
+          fi
+
+          # Gradle 只接受 8 位短 key id（例如 28BF730E 或 0x28BF730E），传 16/40 位会报
+          # "The key ID must be in a valid form"
+          export ORG_GRADLE_PROJECT_signingInMemoryKeyId="${KEYID: -8}"
+          export ORG_GRADLE_PROJECT_signingInMemoryKey="$ARMORED"
+          echo "signing key exported, length=${#ORG_GRADLE_PROJECT_signingInMemoryKey}"
+
           ./gradlew :ijkplayer-armv7a:publishAndReleaseToMavenCentral --stacktrace
           ./gradlew :ijkplayer-arm64:publishAndReleaseToMavenCentral --stacktrace
           ./gradlew :ijkplayer-java:publishAndReleaseToMavenCentral --stacktrace

@@ -28,6 +28,10 @@ jobs:
           ls -l /tmp/secring.gpg
           # 导入到 gpg 并导出为 in-memory ASCII-armored 私钥（vanniktech 官方推荐的 CI 方式）
           gpg --batch --import /tmp/secring.gpg
+          echo "==== signing context ===="
+          echo "ref=$GITHUB_REF sha=$GITHUB_SHA"
+          echo "keyring_sha256=$(shasum -a 256 .github/android/secring.gpg.asc | awk '{print $1}')"
+          echo "secret lengths: keyname=${#IOT_GPG_KEYNAME} passphrase=${#IOT_GPG_PASSPHRASE} decrypt=${#GPG_DECRYPT_PASSPHRASE}"
           echo "==== gpg secret keys ===="
           gpg --list-secret-keys --keyid-format LONG
 
@@ -86,10 +90,12 @@ jobs:
           # vanniktech 官方推荐的 in-memory 签名方式，绕开 keyring 文件格式/路径问题
           ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.IOT_SONATYPE_USERNAME }}
           ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.IOT_SONATYPE_PASSWORD }}
-          ORG_GRADLE_PROJECT_signingInMemoryKeyId: ${{ secrets.IOT_GPG_KEYNAME }}
           ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.IOT_GPG_PASSPHRASE }}
         run: |
           cd android/ijkplayer
+
+          # Gradle 只接受 8 位短 key id，IOT_GPG_KEYNAME 通常是 40 位指纹
+          export ORG_GRADLE_PROJECT_signingInMemoryKeyId="${IOT_GPG_KEYNAME: -8}"
 
           echo "==== export in-memory signing key ===="
           # 导出 ASCII-armored 私钥并注入为 gradle property（不落盘打印）
