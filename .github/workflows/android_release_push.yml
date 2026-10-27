@@ -160,8 +160,9 @@ jobs:
             fi
           fi
 
-          # Gradle in-memory signing 使用 long key id
-          export ORG_GRADLE_PROJECT_signingInMemoryKeyId="${KEYID: -16}"
+          # Gradle 只接受 8 位短 key id（例如 28BF730E 或 0x28BF730E），传 16/40 位会报
+          # "The key ID must be in a valid form"
+          export ORG_GRADLE_PROJECT_signingInMemoryKeyId="${KEYID: -8}"
           export ORG_GRADLE_PROJECT_signingInMemoryKey="$ARMORED"
           echo "signing key exported, length=${#ORG_GRADLE_PROJECT_signingInMemoryKey}"
 
