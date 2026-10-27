@@ -1,8 +1,10 @@
 name: IOT IJK ANDROID RELEASE CI
 
 on:
-  release:
-    types: [published]
+  # 与 snapshot 流水线保持一致：由 tag push 触发，避免 release 事件下 secret 注入差异
+  push:
+    tags:
+      - 'v*'
 
 env:
   IOT_SONATYPE_USERNAME: ${{ secrets.IOT_SONATYPE_USERNAME }}
@@ -50,7 +52,7 @@ jobs:
       - name: Update SDK Version
         env:
           # 通过 env 传递，避免 tag 内容直接拼进 shell
-          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          RELEASE_TAG: ${{ github.ref_name }}
         run: |
           set -euo pipefail
           # 以触发本次 release 的 tag 为准，避免误用仓库里其它最新 tag
