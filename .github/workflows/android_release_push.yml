@@ -35,6 +35,12 @@ jobs:
           echo "secret lengths: keyname=${#IOT_GPG_KEYNAME} passphrase=${#IOT_GPG_PASSPHRASE} decrypt=${#GPG_DECRYPT_PASSPHRASE}"
           echo "==== secret key fingerprints ===="
           gpg --list-secret-keys --with-colons | awk -F: '/^fpr/{print $10}'
+          NOW=$(date +%s)
+          if gpg --list-secret-keys --with-colons | awk -F: -v now="$NOW" '/^sec/{ if ($7 != "" && $7 + 0 < now) bad=1 } END{ exit bad ? 0 : 1 }'; then
+            echo "ERROR: the imported GPG signing key is expired; renew or replace it before publishing."
+            gpg --list-secret-keys --keyid-format LONG
+            exit 1
+          fi
           if [ -n "${IOT_GPG_KEYNAME:-}" ] && gpg --list-secret-keys "$IOT_GPG_KEYNAME" > /dev/null 2>&1; then
             echo "IOT_GPG_KEYNAME matched: $IOT_GPG_KEYNAME"
           else
@@ -119,6 +125,7 @@ jobs:
           # secret 显式指定了 key 却匹配不到，直接失败：避免用错误身份签名
           if [ -n "${IOT_GPG_KEYNAME:-}" ] && [ -z "$PINNED" ]; then
             echo "ERROR: IOT_GPG_KEYNAME='$IOT_GPG_KEYNAME' is not found in the imported keyring."
+            echo "       the keyring may be stale (list above) or IOT_GPG_KEYNAME points to another key."
             gpg --list-secret-keys --keyid-format LONG
             exit 1
           fi
