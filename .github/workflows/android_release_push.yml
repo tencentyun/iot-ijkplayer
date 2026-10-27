@@ -96,28 +96,60 @@ jobs:
           set -euo pipefail
           cd android/ijkplayer
 
-          # 以 keyring 中真实存在的私钥指纹为准，不依赖可能为空或与 keyring 不一致的 IOT_GPG_KEYNAME
-          KEYID=""
+          # keyring 内含多把私钥，且 IOT_GPG_KEYNAME 可能为空或与 keyring 不一致：
+          # 1) secret 指定的 key 若存在，只用它；导出失败直接报错，避免用错身份签名
+          # 2) 未指定/未命中时，逐个尝试，选出能被 IOT_GPG_PASSPHRASE 解锁的那把
+          PINNED=""
           if [ -n "${IOT_GPG_KEYNAME:-}" ]; then
-            KEYID=$(gpg --list-secret-keys --with-colons "$IOT_GPG_KEYNAME" 2>/dev/null | awk -F: '/^fpr/{print $10; exit}' || true)
+            PINNED=$(gpg --list-secret-keys --with-colons "$IOT_GPG_KEYNAME" 2>/dev/null | awk -F: '/^fpr/{print $10; exit}' || true)
           fi
-          if [ -z "$KEYID" ]; then
-            KEYID=$(gpg --list-secret-keys --with-colons 2>/dev/null | awk -F: '/^fpr/{print $10; exit}')
+
+          export_signing_key() {
+            gpg --batch --pinentry-mode loopback \
+                --passphrase "${IOT_GPG_PASSPHRASE:-}" \
+                --export-secret-keys --armor "$1"
+          }
+
+          # secret 显式指定了 key 却匹配不到，直接失败：避免用错误身份签名
+          if [ -n "${IOT_GPG_KEYNAME:-}" ] && [ -z "$PINNED" ]; then
+            echo "ERROR: IOT_GPG_KEYNAME='$IOT_GPG_KEYNAME' is not found in the imported keyring."
+            gpg --list-secret-keys --keyid-format LONG
+            exit 1
           fi
-          [ -n "$KEYID" ] || { echo "ERROR: no secret key found in keyring"; gpg --list-secret-keys; exit 1; }
-          echo "using signing key: $KEYID"
+
+          KEYID=""
+          ARMORED=""
+          if [ -n "$PINNED" ]; then
+            KEYID="$PINNED"
+            echo "pinned signing key: $KEYID"
+            if ! ARMORED="$(export_signing_key "$KEYID" 2>/tmp/gpg-export.err)" || [ -z "$ARMORED" ]; then
+              cat /tmp/gpg-export.err >&2
+              echo "ERROR: cannot unlock pinned key $KEYID. IOT_GPG_PASSPHRASE does not match this key."
+              echo "       fix the secret, or clear IOT_GPG_KEYNAME to let the job pick an unlockable key."
+              exit 1
+            fi
+          else
+            CANDIDATES=$(gpg --list-secret-keys --with-colons 2>/dev/null | awk -F: '
+              /^sec/{want=1; next}
+              want && /^fpr/{print $10; want=0}')
+            [ -n "$CANDIDATES" ] || { echo "ERROR: no secret key found in keyring"; gpg --list-secret-keys; exit 1; }
+            for fpr in $CANDIDATES; do
+              if ARMORED="$(export_signing_key "$fpr" 2>/dev/null)" && [ -n "$ARMORED" ]; then
+                KEYID="$fpr"
+                echo "using signing key unlocked by passphrase: $KEYID"
+                break
+              fi
+            done
+            if [ -z "$ARMORED" ]; then
+              echo "ERROR: IOT_GPG_PASSPHRASE cannot unlock any secret key in the keyring."
+              gpg --list-secret-keys --keyid-format LONG
+              exit 1
+            fi
+          fi
 
           # Gradle in-memory signing 使用 long key id
           export ORG_GRADLE_PROJECT_signingInMemoryKeyId="${KEYID: -16}"
-
-          KEY_ERR=/tmp/gpg-export.err
-          if ! ORG_GRADLE_PROJECT_signingInMemoryKey="$(gpg --batch --pinentry-mode loopback \
-                --passphrase "${IOT_GPG_PASSPHRASE:-}" --export-secret-keys --armor "$KEYID" 2>"$KEY_ERR")"; then
-            cat "$KEY_ERR" >&2
-            echo "ERROR: failed to export signing key $KEYID. check IOT_GPG_PASSPHRASE."
-            exit 1
-          fi
-          [ -n "$ORG_GRADLE_PROJECT_signingInMemoryKey" ] || { echo "ERROR: exported signing key is EMPTY (keyid=$KEYID)"; exit 1; }
+          export ORG_GRADLE_PROJECT_signingInMemoryKey="$ARMORED"
           echo "signing key exported, length=${#ORG_GRADLE_PROJECT_signingInMemoryKey}"
 
           ./gradlew :ijkplayer-armv7a:publishAndReleaseToMavenCentral --stacktrace
