@@ -64,6 +64,11 @@ jobs:
         with:
             distribution: 'temurin' # See 'Supported distributions' for available options
             java-version: '17'
+            # 复用 Gradle 依赖缓存，减少 Maven Central 请求（429 限流的主要来源）
+            cache: 'gradle'
+            cache-dependency-path: |
+              android/ijkplayer/**/*.gradle
+              android/ijkplayer/gradle/wrapper/gradle-wrapper.properties
       - name: Build with Gradle
         run: |
           set -e

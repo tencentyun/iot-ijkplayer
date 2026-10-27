@@ -3,12 +3,15 @@ apply from: "config.gradle"
 buildscript {
     repositories {
         google()
+        // Maven Central 官方备用入口，规避 repo.maven.apache.org 在 CI 上的 429 限流
+        maven { url 'https://repo1.maven.org/maven2' }
         mavenCentral()
     }
     dependencies {
         classpath 'com.android.tools.build:gradle:8.2.0'
 
-        classpath 'com.github.dcendents:android-maven-gradle-plugin:2.1'
+        // 发布已改用 com.vanniktech.maven.publish，该插件在 AGP 8 下不再使用
+        // classpath 'com.github.dcendents:android-maven-gradle-plugin:2.1'
         // classpath 'com.jfrog.bintray.gradle:gradle-bintray-plugin:1.7'
         // NOTE: Do not place your application dependencies here; they belong
         // in the individual module build.gradle files
@@ -18,6 +21,7 @@ buildscript {
 allprojects {
     repositories {
         google()
+        maven { url 'https://repo1.maven.org/maven2' }
         mavenCentral()
     }
 }
