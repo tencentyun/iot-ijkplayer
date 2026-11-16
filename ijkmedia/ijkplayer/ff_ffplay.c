@@ -2692,9 +2692,14 @@ reload:
 static void sdl_audio_callback(void *opaque, Uint8 *stream, int len)
 {
     FFPlayer *ffp = opaque;
-    VideoState *is = ffp->is;
     int audio_size, len1;
-    if (!ffp || !is) {
+    if (!ffp) {
+        memset(stream, 0, len);
+        return;
+    }
+
+    VideoState *is = ffp->is;
+    if (!is) {
         memset(stream, 0, len);
         return;
     }
@@ -3435,6 +3440,16 @@ static int read_thread(void *arg)
     for (;;) {
         if (is->abort_request)
             break;
+
+        /* A new session has replaced ffp->is: this thread belongs to an already
+         * closed stream, so it must not touch ffp/is again - not even through
+         * the fail: path. Leaking `ic` here is intentional, it is the lesser
+         * evil compared to a use-after-free. */
+        if (ffp->is != is) {
+            av_log(NULL, AV_LOG_WARNING, "read_thread: stale VideoState detected, exit\n");
+            SDL_DestroyMutex(wait_mutex);
+            return 0;
+        }
 #ifdef FFP_MERGE
         if (is->paused != is->last_paused) {
             is->last_paused = is->paused;
@@ -3801,12 +3816,29 @@ static int read_thread(void *arg)
 static int video_refresh_thread(void *arg);
 static VideoState *stream_open(FFPlayer *ffp, const char *filename, AVInputFormat *iformat)
 {
-    assert(!ffp->is);
     VideoState *is;
+
+    /* assert() is compiled out in release builds (-DNDEBUG), so overwriting
+     * ffp->is here used to leak the old VideoState together with a running
+     * read_thread. That orphan thread is never joined by stream_close() and
+     * later dereferences the freed ffp in ffp_statistic_l(). */
+    if (ffp->is) {
+        av_log(ffp, AV_LOG_ERROR, "stream_open: previous VideoState is still alive\n");
+        return NULL;
+    }
 
     is = av_mallocz(sizeof(VideoState));
     if (!is)
         return NULL;
+
+    /* publish before the first goto fail: stream_close() dereferences ffp->is.
+     * The stream indexes must be -1 too, otherwise the zeroed value 0 makes
+     * stream_close() call stream_component_close() on a NULL is->ic. */
+    is->video_stream = is->last_video_stream = -1;
+    is->audio_stream = is->last_audio_stream = -1;
+    is->subtitle_stream = is->last_subtitle_stream = -1;
+    ffp->is = is;
+
     is->filename = av_strdup(filename);
     if (!is->filename)
         goto fail;
@@ -3865,13 +3897,12 @@ static VideoState *stream_open(FFPlayer *ffp, const char *filename, AVInputForma
 
     is->play_mutex = SDL_CreateMutex();
     is->accurate_seek_mutex = SDL_CreateMutex();
-    ffp->is = is;
     is->pause_req = !ffp->start_on_prepared;
 
     is->video_refresh_tid = SDL_CreateThreadEx(&is->_video_refresh_tid, video_refresh_thread, ffp, "ff_vout");
     if (!is->video_refresh_tid) {
-        av_freep(&ffp->is);
-        return NULL;
+        av_log(NULL, AV_LOG_FATAL, "SDL_CreateThread(): %s\n", SDL_GetError());
+        goto fail;
     }
 
     is->initialized_decoder = 0;
@@ -3894,8 +3925,11 @@ static VideoState *stream_open(FFPlayer *ffp, const char *filename, AVInputForma
 fail:
     is->initialized_decoder = 1;
     is->abort_request = true;
-    if (is->video_refresh_tid)
+    if (is->video_refresh_tid) {
         SDL_WaitThread(is->video_refresh_tid, NULL);
+        /* stream_close() joins it again otherwise */
+        is->video_refresh_tid = NULL;
+    }
     stream_close(ffp);
     return NULL;
 }
@@ -4425,8 +4459,38 @@ static void ffp_show_version_int(FFPlayer *ffp, const char *module, unsigned ver
 int ffp_prepare_async_l(FFPlayer *ffp, const char *file_name)
 {
     assert(ffp);
-    assert(!ffp->is);
     assert(file_name);
+
+    /* ijkmp_stop_l() only requests an abort and does not join the worker
+     * threads. If prepare() is called again before the previous stream has
+     * finished closing, stream_open() would overwrite ffp->is while the old
+     * read_thread keeps running with a stale VideoState. After release that
+     * thread dereferences a freed ffp/VideoState and crashes in
+     * ffp_statistic_l() (SIGSEGV/SEGV_MAPERR).
+     * Make sure the previous session is fully torn down first. */
+    if (ffp->is) {
+        av_log(ffp, AV_LOG_WARNING, "%s: previous stream is still alive, closing it first\n", __func__);
+        /* Only close the stream here: ffp_wait_stop_l() would also abort
+         * ffp->msg_queue, which the caller has just started for this session. */
+        stream_close(ffp);
+    }
+
+    if (ffp->is) {
+        av_log(ffp, AV_LOG_ERROR, "%s: failed to close the previous stream\n", __func__);
+        return EIJK_INVALID_STATE;
+    }
+
+    /* the old read_thread is joined by now, so dropping its leftovers cannot
+     * race: without this the new session may immediately report the error of
+     * the previous one. */
+    msg_queue_flush(&ffp->msg_queue);
+    ffp->prepared = 0;
+    ffp->auto_resume = 0;
+    ffp->error = 0;
+    ffp->error_count = 0;
+    ffp->last_error = 0;
+    ffp->first_video_frame_rendered = 0;
+    ffp->first_audio_frame_rendered = 0;
 
     if (av_stristart(file_name, "rtmp", NULL) ||
         av_stristart(file_name, "rtsp", NULL)) {
@@ -4474,17 +4538,16 @@ int ffp_prepare_async_l(FFPlayer *ffp, const char *file_name)
     }
 #endif
 
-    VideoState *is = stream_open(ffp, file_name, NULL);
-    if (!is) {
-        av_log(NULL, AV_LOG_WARNING, "ffp_prepare_async_l: stream_open failed OOM");
-        return EIJK_OUT_OF_MEMORY;
-    }
-
-    /* clear the cached statistic of the previous session, otherwise a reused
-     * ffp would report a stale (and usually inflated) cached duration until
-     * the first ffp_statistic_l() refresh lands. */
+    /* must happen before stream_open(), which already starts the worker
+     * threads that keep refreshing these counters. */
     memset(&ffp->stat.audio_cache, 0, sizeof(ffp->stat.audio_cache));
     memset(&ffp->stat.video_cache, 0, sizeof(ffp->stat.video_cache));
+
+    VideoState *is = stream_open(ffp, file_name, NULL);
+    if (!is) {
+        av_log(NULL, AV_LOG_WARNING, "ffp_prepare_async_l: stream_open failed");
+        return EIJK_OUT_OF_MEMORY;
+    }
 
     ffp->is = is;
     ffp->input_filename = av_strdup(file_name);
@@ -4748,10 +4811,13 @@ double ffp_get_master_clock(VideoState *is)
 
 void ffp_toggle_buffering_l(FFPlayer *ffp, int buffering_on)
 {
-    if (!ffp->packet_buffering)
+    if (!ffp || !ffp->packet_buffering)
         return;
 
     VideoState *is = ffp->is;
+    if (!is)
+        return;
+
     if (buffering_on && !is->buffering_on) {
         av_log(ffp, AV_LOG_DEBUG, "ffp_toggle_buffering_l: start\n");
         is->buffering_on = 1;
@@ -4777,9 +4843,16 @@ void ffp_toggle_buffering_l(FFPlayer *ffp, int buffering_on)
 
 void ffp_toggle_buffering(FFPlayer *ffp, int start_buffering)
 {
-    SDL_LockMutex(ffp->is->play_mutex);
+    if (!ffp)
+        return;
+
+    VideoState *is = ffp->is;
+    if (!is || !is->play_mutex)
+        return;
+
+    SDL_LockMutex(is->play_mutex);
     ffp_toggle_buffering_l(ffp, start_buffering);
-    SDL_UnlockMutex(ffp->is->play_mutex);
+    SDL_UnlockMutex(is->play_mutex);
 }
 
 void ffp_track_statistic_l(FFPlayer *ffp, AVStream *st, PacketQueue *q, FFTrackCacheStatistic *cache)
@@ -4840,7 +4913,15 @@ void ffp_statistic_l(FFPlayer *ffp)
 
 void ffp_check_buffering_l(FFPlayer *ffp)
 {
+    if (!ffp)
+        return;
+
+    /* same lifetime concern as ffp_audio_statistic_l(): this is called from
+     * read_thread and ffp->is can already be gone on the stop/release path. */
     VideoState *is            = ffp->is;
+    if (!is)
+        return;
+
     int hwm_in_ms             = ffp->dcc.current_high_water_mark_in_ms; // use fast water mark for first loading
     int buf_size_percent      = -1;
     int buf_time_percent      = -1;
@@ -5050,17 +5131,26 @@ int ffp_set_stream_selected(FFPlayer *ffp, int stream, int selected)
     codecpar = ic->streams[stream]->codecpar;
 
     if (selected) {
+        /* re-selecting the current stream must be a no-op: stream_component_open()
+         * would re-init the decoder and the audio output while the old threads
+         * are still running on them. */
         switch (codecpar->codec_type) {
             case AVMEDIA_TYPE_VIDEO:
-                if (stream != is->video_stream && is->video_stream >= 0)
+                if (stream == is->video_stream)
+                    return 0;
+                if (is->video_stream >= 0)
                     stream_component_close(ffp, is->video_stream);
                 break;
             case AVMEDIA_TYPE_AUDIO:
-                if (stream != is->audio_stream && is->audio_stream >= 0)
+                if (stream == is->audio_stream)
+                    return 0;
+                if (is->audio_stream >= 0)
                     stream_component_close(ffp, is->audio_stream);
                 break;
             case AVMEDIA_TYPE_SUBTITLE:
-                if (stream != is->subtitle_stream && is->subtitle_stream >= 0)
+                if (stream == is->subtitle_stream)
+                    return 0;
+                if (is->subtitle_stream >= 0)
                     stream_component_close(ffp, is->subtitle_stream);
                 break;
             default:

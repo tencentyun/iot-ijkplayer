@@ -39,16 +39,18 @@
 #define MPST_RET_IF_EQ(real, expected) \
     MPST_RET_IF_EQ_INT(real, expected, EIJK_INVALID_STATE)
 
+/* msg_loop runs on mp->ffplayer->msg_queue, so it must be joined *before* the
+ * FFPlayer is freed. */
 inline static void ijkmp_destroy(IjkMediaPlayer *mp)
 {
     if (!mp)
         return;
 
-    ffp_destroy_p(&mp->ffplayer);
-    if (mp->msg_thread) {
+    if (mp->msg_thread && !pthread_equal(mp->msg_thread->id, pthread_self()))
         SDL_WaitThread(mp->msg_thread, NULL);
-        mp->msg_thread = NULL;
-    }
+    mp->msg_thread = NULL;
+
+    ffp_destroy_p(&mp->ffplayer);
 
     pthread_mutex_destroy(&mp->mutex);
 
@@ -106,6 +108,26 @@ void ijkmp_io_stat_complete_register(void (*cb)(const char *url,
                                                 int64_t elpased_time, int64_t total_duration))
 {
     ffp_io_stat_complete_register(cb);
+}
+
+/* mp->_msg_thread is embedded storage that every prepare() reuses, so the
+ * previous msg_loop must be joined before a new thread is spawned on it.
+ * MUST be called without mp->mutex held: msg_loop takes mp->mutex while
+ * dispatching, joining it under the lock would deadlock. Only joins once the
+ * queue is aborted, i.e. when the thread is guaranteed to exit. */
+static void ijkmp_wait_msg_thread(IjkMediaPlayer *mp)
+{
+    if (!mp || !mp->ffplayer || !mp->msg_thread)
+        return;
+
+    if (!mp->ffplayer->msg_queue.abort_request)
+        return;
+
+    if (pthread_equal(mp->msg_thread->id, pthread_self()))
+        return;
+
+    SDL_WaitThread(mp->msg_thread, NULL);
+    mp->msg_thread = NULL;
 }
 
 void ijkmp_change_state_l(IjkMediaPlayer *mp, int new_state)
@@ -303,6 +325,8 @@ void ijkmp_shutdown_l(IjkMediaPlayer *mp)
         ffp_stop_l(mp->ffplayer);
         ffp_wait_stop_l(mp->ffplayer);
     }
+    /* ffp_stop_l() aborted the queue, so the msg thread can be joined here */
+    ijkmp_wait_msg_thread(mp);
     MPTRACE("ijkmp_shutdown_l()=void\n");
 }
 
@@ -407,8 +431,13 @@ static int ijkmp_prepare_async_l(IjkMediaPlayer *mp)
     // released in msg_loop
     ijkmp_inc_ref(mp);
     mp->msg_thread = SDL_CreateThreadEx(&mp->_msg_thread, ijkmp_msg_loop, mp, "ff_msg_loop");
-    // msg_thread is detached inside msg_loop
-    // TODO: 9 release weak_thiz if pthread_create() failed;
+    if (!mp->msg_thread) {
+        /* nothing would deliver the messages of this session */
+        ijkmp_change_state_l(mp, MP_STATE_ERROR);
+        msg_queue_abort(&mp->ffplayer->msg_queue);
+        ijkmp_dec_ref(mp);
+        return EIJK_OUT_OF_MEMORY;
+    }
 
     int retval = ffp_prepare_async_l(mp->ffplayer, mp->data_source);
     if (retval < 0) {
@@ -423,6 +452,8 @@ int ijkmp_prepare_async(IjkMediaPlayer *mp)
 {
     assert(mp);
     MPTRACE("ijkmp_prepare_async()\n");
+    /* outside mp->mutex on purpose, see ijkmp_wait_msg_thread() */
+    ijkmp_wait_msg_thread(mp);
     pthread_mutex_lock(&mp->mutex);
     int retval = ijkmp_prepare_async_l(mp);
     pthread_mutex_unlock(&mp->mutex);
